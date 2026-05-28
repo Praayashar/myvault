@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+
+  <!-- Greeting -->
+  <div class="greeting">
+    <div>
+      <h2>Hello, {{ current_user.name.split()[0] }} 👋</h2>
+      <p class="text-muted">{{ today.strftime('%A, %d %B %Y') }}</p>
+    </div>
+    {% if current_user.role == 'admin' %}
+    <a href="{{ url_for('auth.register') }}" class="btn-outline btn-sm">+ Add Profile</a>
+    {% endif %}
+  </div>
+
+  <!-- Net Worth Card -->
+  <div class="net-worth-card">
+    <div class="nw-label">Net Worth</div>
+    <div class="nw-amount">₹{{ "{:,.0f}".format(net_worth) }}</div>
+    <div class="nw-sub">Investments + Savings</div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">This Week</div>
+      <div class="stat-value red">₹{{ "{:,.0f}".format(weekly_expenses) }}</div>
+      <div class="stat-sub">Spent</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">This Month</div>
+      <div class="stat-value red">₹{{ "{:,.0f}".format(monthly_expenses) }}</div>
+      <div class="stat-sub">Spent</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Income</div>
+      <div class="stat-value green">₹{{ "{:,.0f}".format(monthly_income) }}</div>
+      <div class="stat-sub">This Month</div>
+    </div>
+  </div>
+
+  <!-- Savings Progress -->
+  {% if monthly_income > 0 %}
+  <div class="section-card">
+    <div class="section-header">Monthly Balance</div>
+    {% set balance = monthly_income - monthly_expenses %}
+    {% set pct = [(monthly_expenses / monthly_income * 100), 100] | min %}
+    <div class="balance-row">
+      <span class="{% if balance >= 0 %}text-green{% else %}text-red{% endif %}">
+        {% if balance >= 0 %}Saved ₹{{ "{:,.0f}".format(balance) }}{% else %}Over by ₹{{ "{:,.0f}".format(balance|abs) }}{% endif %}
+      </span>
+      <span class="text-muted">{{ "{:.0f}".format(pct) }}% spent</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill {% if pct > 90 %}danger{% elif pct > 70 %}warning{% endif %}" style="width: {{ pct }}%"></div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Upcoming Renewals -->
+  {% if upcoming_subs %}
+  <div class="section-card">
+    <div class="section-header">
+      <span>🔔 Upcoming Renewals</span>
+      <span class="badge badge-warning">{{ upcoming_subs|length }}</span>
+    </div>
+    {% for sub in upcoming_subs %}
+    <div class="list-item">
+      <div>
+        <div class="item-title">{{ sub.name }}</div>
+        <div class="item-sub">{{ sub.renewal_date.strftime('%d %b') }}
+          {% set days = (sub.renewal_date - today).days %}
+          {% if days == 0 %} · <span class="text-red">Today!</span>
+          {% elif days == 1 %} · <span class="text-red">Tomorrow</span>
+          {% else %} · in {{ days }} days{% endif %}
+        </div>
+      </div>
+      <div class="item-amount">₹{{ "{:,.0f}".format(sub.amount) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Category Breakdown -->
+  {% if category_data %}
+  <div class="section-card">
+    <div class="section-header">This Month's Spending</div>
+    {% set total_cat = category_data | sum(attribute=1) %}
+    {% for cat, amt in category_data | sort(attribute=1, reverse=True) %}
+    <div class="category-row">
+      <div class="cat-info">
+        <span class="cat-name">{{ cat }}</span>
+        <span class="text-muted">{{ "{:.0f}".format(amt / total_cat * 100) }}%</span>
+      </div>
+      <div class="progress-bar slim">
+        <div class="progress-fill" style="width: {{ (amt / total_cat * 100)|round }}%"></div>
+      </div>
+      <div class="cat-amount">₹{{ "{:,.0f}".format(amt) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Recent Expenses -->
+  {% if recent_expenses %}
+  <div class="section-card">
+    <div class="section-header">Recent Expenses</div>
+    {% for exp in recent_expenses %}
+    <div class="list-item">
+      <div>
+        <div class="item-title">{{ exp.description or exp.category }}</div>
+        <div class="item-sub">{{ exp.category }} · {{ exp.payment_method }} · {{ exp.date.strftime('%d %b') }}</div>
+      </div>
+      <div class="item-amount text-red">-₹{{ "{:,.0f}".format(exp.amount) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Pinned Notices -->
+  {% if pinned_notices %}
+  <div class="section-card">
+    <div class="section-header">📌 Pinned Notes</div>
+    {% for notice in pinned_notices %}
+    <div class="notice-item">{{ notice.message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Upcoming Dates -->
+  {% if upcoming_dates %}
+  <div class="section-card">
+    <div class="section-header">🎂 Upcoming Dates</div>
+    {% for d in upcoming_dates %}
+    <div class="list-item">
+      <div>
+        <div class="item-title">{{ d.title }}</div>
+        <div class="item-sub">{{ d.type }} · {{ d.date.strftime('%d %b') }}</div>
+      </div>
+      {% set days_left = (d.date - today).days %}
+      <div class="badge {% if days_left <= 3 %}badge-warning{% else %}badge-green{% endif %}">
+        {% if days_left == 0 %}Today{% elif days_left == 1 %}Tomorrow{% else %}{{ days_left }}d{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Empty State -->
+  {% if not recent_expenses and not upcoming_subs %}
+  <div class="empty-state">
+    <div class="empty-icon">💰</div>
+    <h3>Welcome to MyVault!</h3>
+    <p>Tap the + button below to add your first expense</p>
+  </div>
+  {% endif %}
+
+  <div style="height: 80px;"></div>
+</div>
+{% endblock %}

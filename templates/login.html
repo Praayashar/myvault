@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Login — MyVault{% endblock %}
+
+{% block unauth_content %}
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-icon">🔐</div>
+      <h1>MyVault</h1>
+      <p>Your personal life manager</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('auth.login') }}">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="email" placeholder="your@email.com" required autofocus>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" placeholder="Enter password" required>
+      </div>
+      <button type="submit" class="btn-primary btn-full">Login</button>
+    </form>
+
+    <div class="auth-footer">
+      <a href="{{ url_for('auth.register') }}">Create new profile</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,361 @@
+{% extends 'base.html' %}
+{% block title %}Finance — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>💰 Finance</h2></div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab active" data-tab="overview">Overview</button>
+    <button class="tab" data-tab="expenses">Expenses</button>
+    <button class="tab" data-tab="income">Income</button>
+    <button class="tab" data-tab="budget">Budget</button>
+  </div>
+
+  <!-- OVERVIEW TAB -->
+  <div class="tab-content active" id="tab-overview">
+    <div class="stats-row" style="margin-top:12px;">
+      <div class="stat-card">
+        <div class="stat-label">Income</div>
+        <div class="stat-value green">₹{{ "{:,.0f}".format(monthly_inc) }}</div>
+        <div class="stat-sub">This Month</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Spent</div>
+        <div class="stat-value red">₹{{ "{:,.0f}".format(monthly_exp) }}</div>
+        <div class="stat-sub">This Month</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Balance</div>
+        <div class="stat-value {{ 'green' if balance >= 0 else 'red' }}">₹{{ "{:,.0f}".format(balance|abs) }}</div>
+        <div class="stat-sub">{{ 'Saved' if balance >= 0 else 'Over' }}</div>
+      </div>
+    </div>
+
+    <!-- Weekly Chart -->
+    <div class="section-card">
+      <div class="section-header">Last 7 Days Spending</div>
+      <canvas id="weeklyChart" height="160"></canvas>
+    </div>
+
+    <!-- Monthly Chart -->
+    <div class="section-card">
+      <div class="section-header">6 Month Overview</div>
+      <canvas id="monthlyChart" height="160"></canvas>
+    </div>
+
+    <!-- Category Breakdown -->
+    {% if category_data %}
+    <div class="section-card">
+      <div class="section-header">Category Breakdown</div>
+      {% set total = category_data | sum(attribute=1) %}
+      {% for cat, amt in category_data %}
+      <div class="category-row">
+        <div class="cat-info">
+          <span class="cat-name">{{ cat }}</span>
+          <span class="text-muted">{{ "{:.0f}".format(amt/total*100) }}%</span>
+        </div>
+        <div class="progress-bar slim"><div class="progress-fill" style="width:{{ (amt/total*100)|round }}%"></div></div>
+        <div class="cat-amount">₹{{ "{:,.0f}".format(amt) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Payment Method Breakdown -->
+    {% if payment_data %}
+    <div class="section-card">
+      <div class="section-header">Payment Methods</div>
+      {% set ptotal = payment_data | sum(attribute=1) %}
+      {% for method, amt in payment_data %}
+      <div class="list-item">
+        <div class="item-title">{{ method }}</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="text-muted" style="font-size:12px;">{{ "{:.0f}".format(amt/ptotal*100) }}%</span>
+          <span class="item-amount">₹{{ "{:,.0f}".format(amt) }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Calendar Link -->
+    <a href="{{ url_for('finance.calendar_view') }}" class="btn-outline btn-full" style="margin-bottom:12px;">📅 View Calendar</a>
+  </div>
+
+  <!-- EXPENSES TAB -->
+  <div class="tab-content" id="tab-expenses">
+    <div style="margin-top:12px;">
+      <button class="btn-primary btn-full" id="showAddExpense">+ Add Expense</button>
+    </div>
+
+    <!-- Add Expense Form -->
+    <div class="form-card hidden" id="addExpenseForm">
+      <div class="form-group"><label>Amount (₹)</label><input type="number" id="exp-amount" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="form-group"><label>Category</label>
+        <select id="exp-category">{% for c in categories %}<option>{{ c }}</option>{% endfor %}</select>
+      </div>
+      <div class="form-group"><label>Payment Method</label>
+        <select id="exp-payment">{% for p in payment_methods %}<option>{{ p }}</option>{% endfor %}</select>
+      </div>
+      <div class="form-group"><label>Description</label><input type="text" id="exp-desc" placeholder="e.g. Zomato dinner"></div>
+      <div class="form-group"><label>Notes</label><input type="text" id="exp-notes" placeholder="Optional notes"></div>
+      <div class="form-group"><label>Date</label><input type="date" id="exp-date"></div>
+      <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="exp-recurring" style="width:auto;">
+        <label for="exp-recurring" style="margin:0;">Recurring monthly</label>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn-outline" id="cancelExpense">Cancel</button>
+        <button class="btn-primary" id="submitExpense">Add</button>
+      </div>
+    </div>
+
+    <!-- Expenses List -->
+    <div class="section-card" style="margin-top:12px;">
+      <div class="section-header">Recent Expenses</div>
+      {% if expenses %}
+        {% for exp in expenses %}
+        <div class="list-item" id="exp-{{ exp.id }}">
+          <div>
+            <div class="item-title">{{ exp.description or exp.category }}</div>
+            <div class="item-sub">{{ exp.category }} · {{ exp.payment_method }} · {{ exp.date.strftime('%d %b %Y') }}</div>
+            {% if exp.notes %}<div class="item-sub">📝 {{ exp.notes }}</div>{% endif %}
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+            <div class="item-amount text-red">-₹{{ "{:,.0f}".format(exp.amount) }}</div>
+            <button class="del-btn" onclick="deleteExpense({{ exp.id }})">✕</button>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state" style="padding:20px;">
+          <p>No expenses yet. Add your first one!</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- INCOME TAB -->
+  <div class="tab-content" id="tab-income">
+    <div style="margin-top:12px;">
+      <button class="btn-primary btn-full" id="showAddIncome">+ Add Income</button>
+    </div>
+
+    <div class="form-card hidden" id="addIncomeForm">
+      <div class="form-group"><label>Amount (₹)</label><input type="number" id="inc-amount" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="form-group"><label>Source</label><input type="text" id="inc-source" placeholder="e.g. Salary, Freelance, Rental"></div>
+      <div class="form-group"><label>Description</label><input type="text" id="inc-desc" placeholder="Optional"></div>
+      <div class="form-group"><label>Date</label><input type="date" id="inc-date"></div>
+      <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="inc-recurring" style="width:auto;">
+        <label for="inc-recurring" style="margin:0;">Recurring monthly</label>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn-outline" id="cancelIncome">Cancel</button>
+        <button class="btn-primary" id="submitIncome">Add</button>
+      </div>
+    </div>
+
+    <div class="section-card" style="margin-top:12px;" id="incomeList">
+      <div class="section-header">Income This Month</div>
+      <div id="incomeItems"><div class="empty-state" style="padding:20px;"><p>Loading...</p></div></div>
+    </div>
+  </div>
+
+  <!-- BUDGET TAB -->
+  <div class="tab-content" id="tab-budget">
+    <div style="margin-top:12px;">
+      <button class="btn-primary btn-full" id="showAddBudget">+ Set Budget Limit</button>
+    </div>
+
+    <div class="form-card hidden" id="addBudgetForm">
+      <div class="form-group"><label>Category</label>
+        <select id="bud-category">{% for c in categories %}<option>{{ c }}</option>{% endfor %}</select>
+      </div>
+      <div class="form-group"><label>Monthly Limit (₹)</label><input type="number" id="bud-limit" placeholder="e.g. 5000" min="0"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn-outline" id="cancelBudget">Cancel</button>
+        <button class="btn-primary" id="submitBudget">Set Limit</button>
+      </div>
+    </div>
+
+    {% if budget_status %}
+    <div class="section-card" style="margin-top:12px;">
+      <div class="section-header">Budget Status</div>
+      {% for b in budget_status %}
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span class="item-title">{{ b.category }}</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="text-muted" style="font-size:12px;">₹{{ "{:,.0f}".format(b.spent) }} / ₹{{ "{:,.0f}".format(b.limit) }}</span>
+            <button class="del-btn" onclick="deleteBudget({{ b.id }})">✕</button>
+          </div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill {{ 'danger' if b.pct >= 90 else 'warning' if b.pct >= 70 else '' }}" style="width:{{ b.pct }}%"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:3px;">
+          <span class="text-muted" style="font-size:11px;">{{ b.pct }}% used</span>
+          <span class="text-muted" style="font-size:11px;">₹{{ "{:,.0f}".format(b.remaining) }} left</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:30px 20px;margin-top:12px;">
+      <div class="empty-icon">🎯</div>
+      <h3>No Budget Limits Set</h3>
+      <p>Set limits to track your spending goals</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('exp-date') && (document.getElementById('exp-date').value = today);
+document.getElementById('inc-date') && (document.getElementById('inc-date').value = today);
+
+// Tabs
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    if (tab.dataset.tab === 'income') loadIncome();
+  });
+});
+
+// Toggle forms
+function toggleForm(showBtn, form, cancelBtn) {
+  document.getElementById(showBtn).addEventListener('click', () => {
+    document.getElementById(showBtn).classList.add('hidden');
+    document.getElementById(form).classList.remove('hidden');
+  });
+  document.getElementById(cancelBtn).addEventListener('click', () => {
+    document.getElementById(showBtn).classList.remove('hidden');
+    document.getElementById(form).classList.add('hidden');
+  });
+}
+toggleForm('showAddExpense','addExpenseForm','cancelExpense');
+toggleForm('showAddIncome','addIncomeForm','cancelIncome');
+toggleForm('showAddBudget','addBudgetForm','cancelBudget');
+
+// Add Expense
+document.getElementById('submitExpense').addEventListener('click', async () => {
+  const amt = document.getElementById('exp-amount').value;
+  if (!amt || parseFloat(amt) <= 0) return alert('Enter valid amount');
+  const res = await fetch('/finance/expense/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      amount: amt,
+      category: document.getElementById('exp-category').value,
+      payment_method: document.getElementById('exp-payment').value,
+      description: document.getElementById('exp-desc').value,
+      notes: document.getElementById('exp-notes').value,
+      date: document.getElementById('exp-date').value,
+      is_recurring: document.getElementById('exp-recurring').checked
+    })
+  });
+  const data = await res.json();
+  if (data.success) location.reload();
+  else alert('Error: ' + data.message);
+});
+
+// Add Income
+document.getElementById('submitIncome').addEventListener('click', async () => {
+  const amt = document.getElementById('inc-amount').value;
+  const src = document.getElementById('inc-source').value;
+  if (!amt || !src) return alert('Amount and source required');
+  const res = await fetch('/finance/income/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      amount: amt, source: src,
+      description: document.getElementById('inc-desc').value,
+      date: document.getElementById('inc-date').value,
+      is_recurring: document.getElementById('inc-recurring').checked
+    })
+  });
+  const data = await res.json();
+  if (data.success) location.reload();
+  else alert('Error: ' + data.message);
+});
+
+// Add Budget
+document.getElementById('submitBudget').addEventListener('click', async () => {
+  const lim = document.getElementById('bud-limit').value;
+  if (!lim || parseFloat(lim) <= 0) return alert('Enter valid limit');
+  const res = await fetch('/finance/budget/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ category: document.getElementById('bud-category').value, limit: lim })
+  });
+  const data = await res.json();
+  if (data.success) location.reload();
+});
+
+async function deleteExpense(id) {
+  if (!confirm('Delete this expense?')) return;
+  const res = await fetch('/finance/expense/delete/' + id, { method:'POST' });
+  const data = await res.json();
+  if (data.success) document.getElementById('exp-' + id).remove();
+}
+
+async function deleteBudget(id) {
+  if (!confirm('Remove this budget limit?')) return;
+  const res = await fetch('/finance/budget/delete/' + id, { method:'POST' });
+  if ((await res.json()).success) location.reload();
+}
+
+async function loadIncome() {
+  const res = await fetch('/finance/income/list');
+  const items = await res.json();
+  const container = document.getElementById('incomeItems');
+  if (!items.length) { container.innerHTML = '<div class="empty-state" style="padding:20px;"><p>No income added yet</p></div>'; return; }
+  container.innerHTML = items.map(i => `
+    <div class="list-item">
+      <div>
+        <div class="item-title">${i.source}</div>
+        <div class="item-sub">${i.description || ''} · ${i.date}</div>
+      </div>
+      <div class="item-amount text-green">+₹${Number(i.amount).toLocaleString('en-IN')}</div>
+    </div>
+  `).join('');
+}
+
+// Charts
+const chartOpts = {
+  responsive: true,
+  plugins: { legend: { display: false } },
+  scales: { y: { beginAtZero: true, ticks: { callback: v => '₹' + v } }, x: { grid: { display: false } } }
+};
+
+new Chart(document.getElementById('weeklyChart'), {
+  type: 'bar',
+  data: {
+    labels: {{ chart_labels | tojson }},
+    datasets: [{ data: {{ chart_data | tojson }}, backgroundColor: '#2D6A4F', borderRadius: 6 }]
+  },
+  options: chartOpts
+});
+
+new Chart(document.getElementById('monthlyChart'), {
+  type: 'line',
+  data: {
+    labels: {{ month_labels | tojson }},
+    datasets: [
+      { label: 'Income', data: {{ month_data_inc | tojson }}, borderColor: '#2D6A4F', backgroundColor: 'rgba(45,106,79,0.1)', tension: 0.4, fill: true },
+      { label: 'Expense', data: {{ month_data_exp | tojson }}, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.1)', tension: 0.4, fill: true }
+    ]
+  },
+  options: { ...chartOpts, plugins: { legend: { display: true } } }
+});
+</script>
+{% endblock %}

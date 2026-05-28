@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% block title %}Settings — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>⚙️ Settings</h2></div>
+
+  <!-- Profile Card -->
+  <div class="section-card">
+    <div class="section-header">My Profile</div>
+    <div class="profile-row">
+      <div class="profile-avatar">{{ current_user.name[0].upper() }}</div>
+      <div>
+        <div class="item-title">{{ current_user.name }}</div>
+        <div class="item-sub">{{ current_user.email }}</div>
+        <div class="item-sub">Role: {{ current_user.role.title() }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Simple Mode Toggle -->
+  <div class="section-card">
+    <div class="section-header">Display</div>
+    <div class="list-item">
+      <div>
+        <div class="item-title">Simple Mode</div>
+        <div class="item-sub">Larger text, fewer options — good for Papa</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="simpleModeToggle" {% if current_user.simple_mode %}checked{% endif %}>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Email Setup -->
+  <div class="section-card">
+    <div class="section-header">📧 Email Reminders</div>
+    {% if config.EMAILJS_PUBLIC_KEY %}
+    <div class="list-item">
+      <div>
+        <div class="item-title">EmailJS Status</div>
+        <div class="item-sub">Active — reminders will be sent</div>
+      </div>
+      <span class="badge badge-green">✅ Active</span>
+    </div>
+    {% else %}
+    <div class="list-item">
+      <div>
+        <div class="item-title">EmailJS Status</div>
+        <div class="item-sub">Not configured yet</div>
+      </div>
+      <span class="badge badge-warning">⚠️ Setup needed</span>
+    </div>
+    {% endif %}
+    <a href="{{ url_for('reports.emailjs_setup') }}" class="btn-outline btn-full" style="margin-top:12px;">
+      📧 EmailJS Setup Guide →
+    </a>
+  </div>
+
+  <!-- Family Profiles (admin only) -->
+  {% if current_user.role == 'admin' and all_users %}
+  <div class="section-card">
+    <div class="section-header">👨‍👩‍👦 Family Profiles</div>
+    {% for u in all_users %}
+    <div class="list-item">
+      <div class="profile-avatar small">{{ u.name[0].upper() }}</div>
+      <div style="flex:1; margin-left: 10px;">
+        <div class="item-title">{{ u.name }}</div>
+        <div class="item-sub">{{ u.email }} · {{ u.role.title() }}</div>
+      </div>
+    </div>
+    {% endfor %}
+    <a href="{{ url_for('auth.register') }}" class="btn-outline btn-full" style="margin-top:12px;">+ Add Family Profile</a>
+  </div>
+  {% endif %}
+
+  <!-- Quick Links -->
+  <div class="section-card">
+    <div class="section-header">Quick Links</div>
+    <a href="{{ url_for('reports.index') }}" class="list-item" style="text-decoration:none;color:inherit;">
+      <div class="item-title">📊 Reports & Export</div>
+      <svg viewBox="0 0 24 24" width="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </a>
+    <a href="{{ url_for('ai.index') }}" class="list-item" style="text-decoration:none;color:inherit;">
+      <div class="item-title">🤖 AI Assistant</div>
+      <svg viewBox="0 0 24 24" width="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </a>
+    <a href="{{ url_for('family.index') }}" class="list-item" style="text-decoration:none;color:inherit;">
+      <div class="item-title">👨‍👩‍👦 Family View</div>
+      <svg viewBox="0 0 24 24" width="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </a>
+  </div>
+
+  <!-- About -->
+  <div class="section-card">
+    <div class="section-header">About</div>
+    <div class="list-item">
+      <div class="item-title">MyVault</div>
+      <div class="item-sub">Version 1.0 · Built with ❤️</div>
+    </div>
+    <div class="list-item">
+      <div class="item-title">Database</div>
+      <div class="item-sub">{{ 'PostgreSQL' if 'postgresql' in config.SQLALCHEMY_DATABASE_URI else 'SQLite (local)' }}</div>
+    </div>
+  </div>
+
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('simpleModeToggle').addEventListener('change', function() {
+  fetch('/settings/simple-mode', { method: 'POST', headers: {'Content-Type': 'application/json'} })
+    .then(r => r.json()).then(d => { if(d.success) location.reload(); });
+});
+</script>
+{% endblock %}

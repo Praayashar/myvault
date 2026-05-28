@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% block title %}Family — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>👨‍👩‍👦 Family View</h2></div>
+
+  <!-- Family Net Worth -->
+  <div class="net-worth-card">
+    <div class="nw-label">Family Net Worth</div>
+    <div class="nw-amount">₹{{ "{:,.0f}".format(total_nw) }}</div>
+    <div style="display:flex;justify-content:space-around;margin-top:12px;">
+      <div style="text-align:center;">
+        <div style="font-size:11px;color:var(--green-pale);">Family Income</div>
+        <div style="font-size:16px;font-weight:700;color:white;">₹{{ "{:,.0f}".format(total_inc) }}</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:11px;color:var(--green-pale);">Family Spent</div>
+        <div style="font-size:16px;font-weight:700;color:white;">₹{{ "{:,.0f}".format(total_exp) }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Per Member Cards -->
+  <div class="section-card">
+    <div class="section-header">This Month — By Member</div>
+    {% for s in summaries %}
+    <div class="member-row">
+      <div class="profile-avatar">{{ s.user.name[0].upper() }}</div>
+      <div style="flex:1;margin-left:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="item-title">{{ s.user.name }}{% if s.user.id == current_user.id %} <span class="badge badge-green" style="font-size:10px;">You</span>{% endif %}</div>
+          <div class="{{ 'text-green' if s.balance >= 0 else 'text-red' }}" style="font-size:13px;font-weight:600;">
+            {{ '+' if s.balance >= 0 else '' }}₹{{ "{:,.0f}".format(s.balance|abs) }}
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;">
+          <span class="text-muted" style="font-size:12px;">Income: ₹{{ "{:,.0f}".format(s.monthly_inc) }}</span>
+          <span class="text-muted" style="font-size:12px;">Spent: ₹{{ "{:,.0f}".format(s.monthly_exp) }}</span>
+        </div>
+        {% if s.monthly_inc > 0 %}
+        {% set pct = [(s.monthly_exp / s.monthly_inc * 100), 100] | min | round %}
+        <div class="progress-bar slim" style="margin-top:6px;">
+          <div class="progress-fill {{ 'danger' if pct > 90 else 'warning' if pct > 70 else '' }}" style="width:{{ pct }}%;"></div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Family Renewals -->
+  {% if family_subs %}
+  <div class="section-card">
+    <div class="section-header">🔔 Family Renewals This Week</div>
+    {% for sub in family_subs %}
+    {% set days = (sub.renewal_date - today).days %}
+    <div class="list-item">
+      <div>
+        <div class="item-title">{{ sub.name }}</div>
+        <div class="item-sub">{{ sub.renewal_date.strftime('%d %b') }} · {% if days == 0 %}Today!{% elif days == 1 %}Tomorrow{% else %}{{ days }}d{% endif %}</div>
+      </div>
+      <div class="item-amount">₹{{ "{:,.0f}".format(sub.amount) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Family Notice Board -->
+  <div class="section-card">
+    <div class="section-header">📌 Family Notice Board</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <input type="text" id="noticeInput" placeholder="Write a note for family..." style="flex:1;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;">
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;">
+        <input type="checkbox" id="noticePinned"> 📌 Pin
+      </label>
+      <button class="btn-primary btn-sm" onclick="addNotice()" style="white-space:nowrap;">Post</button>
+    </div>
+    {% if notices %}
+      {% for notice in notices %}
+      <div class="notice-item {{ 'notice-pinned' if notice.is_pinned else '' }}" id="notice-{{ notice.id }}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+          <div style="flex:1;">
+            {% if notice.is_pinned %}<span style="font-size:11px;">📌 </span>{% endif %}
+            <span style="font-size:14px;">{{ notice.message }}</span>
+            <div class="item-sub" style="margin-top:4px;">{{ notice.created_at.strftime('%d %b, %I:%M %p') }}</div>
+          </div>
+          <div style="display:flex;gap:4px;flex-shrink:0;">
+            <button class="icon-btn" onclick="pinNotice({{ notice.id }}, this)" title="{{ 'Unpin' if notice.is_pinned else 'Pin' }}">{{ '📍' if notice.is_pinned else '📌' }}</button>
+            <button class="del-btn" onclick="deleteNotice({{ notice.id }})">✕</button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="text-muted" style="font-size:13px;text-align:center;">No notices yet. Post one above!</p>
+    {% endif %}
+  </div>
+
+  <!-- Important Dates -->
+  <div class="section-card">
+    <div class="section-header">🎂 Important Dates</div>
+    <button class="btn-outline btn-full" id="showAddDate" style="margin-bottom:12px;">+ Add Important Date</button>
+    <div class="form-card hidden" id="addDateForm" style="margin-top:0;margin-bottom:12px;">
+      <div class="form-group"><label>Title</label><input type="text" id="dt-title" placeholder="e.g. Maa's Birthday, Wedding Anniversary"></div>
+      <div class="form-group"><label>Type</label>
+        <select id="dt-type"><option>Birthday</option><option>Anniversary</option><option>Festival</option><option>Appointment</option><option>Other</option></select>
+      </div>
+      <div class="form-group"><label>Date</label><input type="date" id="dt-date"></div>
+      <div class="form-group"><label>Remind me (days before)</label><input type="number" id="dt-remind" value="3" min="1"></div>
+      <div class="form-group"><label>Notes</label><input type="text" id="dt-notes" placeholder="Optional"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn-outline" id="cancelDate">Cancel</button>
+        <button class="btn-primary" id="submitDate">Save</button>
+      </div>
+    </div>
+
+    {% if upcoming_dates %}
+      {% for d in upcoming_dates %}
+      {% set days_left = (d.date - today).days %}
+      <div class="list-item" id="date-{{ d.id }}">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span>{% if d.type == 'Birthday' %}🎂{% elif d.type == 'Anniversary' %}💍{% elif d.type == 'Festival' %}🎉{% elif d.type == 'Appointment' %}📅{% else %}⭐{% endif %}</span>
+            <div class="item-title">{{ d.title }}</div>
+          </div>
+          <div class="item-sub">{{ d.date.strftime('%d %b %Y') }} · {{ d.type }}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="badge {{ 'badge-warning' if days_left <= 3 else 'badge-green' }}">
+            {% if days_left == 0 %}Today!{% elif days_left == 1 %}Tomorrow{% else %}{{ days_left }}d{% endif %}
+          </span>
+          <button class="del-btn" onclick="deleteDate({{ d.id }})">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="text-muted" style="font-size:13px;text-align:center;">No upcoming dates in next 30 days</p>
+    {% endif %}
+  </div>
+
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function addNotice() {
+  const msg = document.getElementById('noticeInput').value.trim();
+  if (!msg) return alert('Please write a message');
+  const res = await fetch('/family/notice/add', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ message: msg, is_pinned: document.getElementById('noticePinned').checked }) });
+  if ((await res.json()).success) location.reload();
+}
+
+async function pinNotice(id, btn) {
+  const res = await fetch('/family/notice/pin/' + id, {method:'POST'});
+  if ((await res.json()).success) location.reload();
+}
+
+async function deleteNotice(id) {
+  if ((await (await fetch('/family/notice/delete/' + id, {method:'POST'})).json()).success) document.getElementById('notice-' + id).remove();
+}
+
+document.getElementById('showAddDate').addEventListener('click', () => { document.getElementById('showAddDate').classList.add('hidden'); document.getElementById('addDateForm').classList.remove('hidden'); });
+document.getElementById('cancelDate').addEventListener('click', () => { document.getElementById('showAddDate').classList.remove('hidden'); document.getElementById('addDateForm').classList.add('hidden'); });
+document.getElementById('submitDate').addEventListener('click', async () => {
+  const title = document.getElementById('dt-title').value;
+  const dt = document.getElementById('dt-date').value;
+  if (!title || !dt) return alert('Title and date required');
+  const res = await fetch('/family/dates/add', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ title, type: document.getElementById('dt-type').value, date: dt, reminder_days: document.getElementById('dt-remind').value, notes: document.getElementById('dt-notes').value }) });
+  if ((await res.json()).success) location.reload();
+});
+
+async function deleteDate(id) {
+  if ((await (await fetch('/family/dates/delete/' + id, {method:'POST'})).json()).success) document.getElementById('date-' + id).remove();
+}
+</script>
+{% endblock %}

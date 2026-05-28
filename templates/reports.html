@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% block title %}Reports — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <!-- Month Navigation -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <a href="{{ url_for('reports.index', year=prev_year, month=prev_month) }}" class="btn-outline btn-sm">‹ Prev</a>
+    <h2 style="font-size:18px;font-weight:700;">📊 {{ month_name }}</h2>
+    <a href="{{ url_for('reports.index', year=next_year, month=next_month) }}" class="btn-outline btn-sm">Next ›</a>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Income</div>
+      <div class="stat-value green">₹{{ "{:,.0f}".format(monthly_inc) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Expenses</div>
+      <div class="stat-value red">₹{{ "{:,.0f}".format(monthly_exp) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">{{ 'Saved' if balance >= 0 else 'Deficit' }}</div>
+      <div class="stat-value {{ 'green' if balance >= 0 else 'red' }}">₹{{ "{:,.0f}".format(balance|abs) }}</div>
+    </div>
+  </div>
+
+  <!-- Smart Insights -->
+  {% if insights %}
+  <div class="section-card">
+    <div class="section-header">🧠 Smart Insights</div>
+    {% for insight in insights %}
+    <div class="insight-item insight-{{ insight.type }}">
+      {% if insight.type == 'success' %}✅{% elif insight.type == 'warning' %}⚠️{% elif insight.type == 'danger' %}🔴{% else %}💡{% endif %}
+      {{ insight.text }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Yearly Chart -->
+  <div class="section-card">
+    <div class="section-header">{{ year }} — Full Year Overview</div>
+    <canvas id="yearlyChart" height="180"></canvas>
+  </div>
+
+  <!-- Category Breakdown -->
+  {% if category_data %}
+  <div class="section-card">
+    <div class="section-header">Spending by Category</div>
+    {% set total = category_data | sum(attribute=1) %}
+    {% for cat, amt in category_data %}
+    <div class="category-row">
+      <div class="cat-info">
+        <span class="cat-name">{{ cat }}</span>
+        <span class="text-muted">{{ "{:.0f}".format(amt/total*100) }}%</span>
+      </div>
+      <div class="progress-bar slim"><div class="progress-fill" style="width:{{ (amt/total*100)|round }}%"></div></div>
+      <div class="cat-amount">₹{{ "{:,.0f}".format(amt) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Payment Methods -->
+  {% if payment_data %}
+  <div class="section-card">
+    <div class="section-header">Payment Methods</div>
+    {% set ptotal = payment_data | sum(attribute=1) %}
+    {% for method, amt in payment_data %}
+    <div class="list-item">
+      <div class="item-title">{{ method }}</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="text-muted" style="font-size:12px;">{{ "{:.0f}".format(amt/ptotal*100) }}%</span>
+        <span class="item-amount">₹{{ "{:,.0f}".format(amt) }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Budget Performance -->
+  {% if budget_perf %}
+  <div class="section-card">
+    <div class="section-header">Budget Performance</div>
+    {% for b in budget_perf %}
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span class="item-title">{{ b.category }}</span>
+        <span class="{% if b.status == 'over' %}text-red{% elif b.status == 'warning' %}text-muted{% else %}text-green{% endif %}" style="font-size:12px;font-weight:600;">
+          {% if b.status == 'over' %}Over budget!{% elif b.status == 'warning' %}Near limit{% else %}On track{% endif %}
+        </span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill {{ 'danger' if b.status == 'over' else 'warning' if b.status == 'warning' else '' }}" style="width:{{ b.pct }}%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:2px;">
+        <span>₹{{ "{:,.0f}".format(b.spent) }} spent</span>
+        <span>₹{{ "{:,.0f}".format(b.limit) }} limit</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Subscriptions Renewed -->
+  {% if subs_renewed %}
+  <div class="section-card">
+    <div class="section-header">Subscriptions Renewed This Month</div>
+    {% for sub in subs_renewed %}
+    <div class="list-item">
+      <div class="item-title">{{ sub.name }}</div>
+      <div class="item-amount text-red">₹{{ "{:,.0f}".format(sub.amount) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- All Expenses This Month -->
+  {% if expenses %}
+  <div class="section-card">
+    <div class="section-header">All Expenses ({{ expenses|length }})</div>
+    {% for exp in expenses %}
+    <div class="list-item">
+      <div>
+        <div class="item-title">{{ exp.description or exp.category }}</div>
+        <div class="item-sub">{{ exp.category }} · {{ exp.payment_method }} · {{ exp.date.strftime('%d %b') }}</div>
+      </div>
+      <div class="item-amount text-red">-₹{{ "{:,.0f}".format(exp.amount) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Export & Email -->
+  <div class="section-card">
+    <div class="section-header">📤 Export & Share</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <a href="{{ url_for('reports.export_csv', year=year, month=month) }}" class="btn-outline" style="text-align:center;display:block;">
+        📥 Download CSV
+      </a>
+      <button class="btn-outline" onclick="sendEmailReport()">📧 Email Report</button>
+    </div>
+    <div id="emailStatus" style="font-size:13px;text-align:center;margin-top:10px;display:none;"></div>
+  </div>
+
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>
+// Yearly chart
+new Chart(document.getElementById('yearlyChart'), {
+  type: 'bar',
+  data: {
+    labels: {{ month_labels | tojson }},
+    datasets: [
+      { label: 'Income', data: {{ yearly_inc | tojson }}, backgroundColor: 'rgba(45,106,79,0.7)', borderRadius: 4 },
+      { label: 'Expense', data: {{ yearly_exp | tojson }}, backgroundColor: 'rgba(220,38,38,0.6)', borderRadius: 4 }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: true, position: 'bottom' } },
+    scales: {
+      y: { beginAtZero: true, ticks: { callback: v => '₹' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+async function sendEmailReport() {
+  const btn = event.target;
+  const status = document.getElementById('emailStatus');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+  status.style.display = 'block';
+  status.textContent = 'Fetching your report data...';
+  status.style.color = 'var(--text-muted)';
+
+  try {
+    const res = await fetch('/reports/summary/json?year={{ year }}&month={{ month }}');
+    const data = await res.json();
+
+    const EMAILJS_PUBLIC_KEY = '{{ config.EMAILJS_PUBLIC_KEY if config else "" }}';
+    const EMAILJS_SERVICE_ID = '{{ config.EMAILJS_SERVICE_ID if config else "" }}';
+    const EMAILJS_TEMPLATE_ID = '{{ config.EMAILJS_TEMPLATE_ID if config else "" }}';
+
+    if (!EMAILJS_PUBLIC_KEY || !EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID) {
+      status.textContent = '⚠️ EmailJS not configured yet. Add your keys in .env file. See setup guide below.';
+      status.style.color = 'var(--amber)';
+      btn.disabled = false;
+      btn.textContent = '📧 Email Report';
+      return;
+    }
+
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+
+    const topCats = data.top_categories.map(c => `${c.name}: ₹${c.amount.toLocaleString('en-IN')}`).join('\n');
+    const renewals = data.upcoming_renewals.map(r => `${r.name}: ₹${r.amount} on ${r.date}`).join('\n') || 'None';
+
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_name: data.user_name,
+      to_email: data.user_email,
+      month_name: data.month_name,
+      monthly_income: '₹' + data.monthly_income.toLocaleString('en-IN'),
+      monthly_expense: '₹' + data.monthly_expense.toLocaleString('en-IN'),
+      balance: '₹' + Math.abs(data.balance).toLocaleString('en-IN'),
+      balance_label: data.balance >= 0 ? 'Saved' : 'Overspent',
+      savings_rate: data.savings_rate + '%',
+      top_categories: topCats,
+      upcoming_renewals: renewals
+    });
+
+    status.textContent = '✅ Report sent to ' + data.user_email;
+    status.style.color = 'var(--green-mid)';
+  } catch (err) {
+    status.textContent = '❌ Failed to send email. Check EmailJS setup.';
+    status.style.color = 'var(--red)';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '📧 Email Report';
+}
+</script>
+{% endblock %}

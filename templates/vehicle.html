@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block title %}Vehicle Tracker — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>🚗 Vehicle Tracker</h2></div>
+
+  <button class="btn-primary btn-full" id="showAddVehicle">+ Add Vehicle</button>
+  <div class="form-card hidden" id="addVehicleForm">
+    <div class="form-group"><label>Vehicle Name</label><input type="text" id="v-name" placeholder="e.g. Honda Activa, Maruti Swift"></div>
+    <div class="form-group"><label>Registration Number</label><input type="text" id="v-reg" placeholder="MH01AB1234"></div>
+    <div class="form-group"><label>Insurance Expiry</label><input type="date" id="v-insurance"></div>
+    <div class="form-group"><label>PUC Expiry</label><input type="date" id="v-puc"></div>
+    <div class="form-group"><label>Last Service Date</label><input type="date" id="v-service"></div>
+    <div class="form-group"><label>Current KM Reading</label><input type="number" id="v-km" placeholder="e.g. 25000"></div>
+    <div class="form-group"><label>Next Service at KM</label><input type="number" id="v-next-km" placeholder="e.g. 28000"></div>
+    <div class="form-group"><label>Notes</label><input type="text" id="v-notes" placeholder="Optional"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button class="btn-outline" id="cancelVehicle">Cancel</button>
+      <button class="btn-primary" id="submitVehicle">Add Vehicle</button>
+    </div>
+  </div>
+
+  <!-- Vehicle Cards -->
+  {% for v in vehicles %}
+  {% set ins_days = (v.insurance_expiry - today).days if v.insurance_expiry else None %}
+  {% set puc_days = (v.puc_expiry - today).days if v.puc_expiry else None %}
+  <div class="inv-card" id="vehicle-{{ v.id }}" style="margin-top:12px;">
+    <div class="inv-header">
+      <div>
+        <div class="item-title">🚗 {{ v.name }}</div>
+        {% if v.registration_number %}<div class="item-sub">{{ v.registration_number }}</div>{% endif %}
+      </div>
+      <button class="del-btn" onclick="deleteVehicle({{ v.id }})">✕</button>
+    </div>
+    <div class="inv-details">
+      {% if v.insurance_expiry %}
+      <span class="detail-pill {{ 'pill-red' if ins_days and ins_days <= 30 else '' }}">
+        🛡️ Insurance: {{ v.insurance_expiry.strftime('%d %b %Y') }}{% if ins_days is not none %} ({{ ins_days }}d){% endif %}
+      </span>
+      {% endif %}
+      {% if v.puc_expiry %}
+      <span class="detail-pill {{ 'pill-red' if puc_days and puc_days <= 30 else '' }}">
+        📋 PUC: {{ v.puc_expiry.strftime('%d %b %Y') }}{% if puc_days is not none %} ({{ puc_days }}d){% endif %}
+      </span>
+      {% endif %}
+      {% if v.last_service_date %}
+      <span class="detail-pill">🔧 Last Service: {{ v.last_service_date.strftime('%d %b %Y') }}</span>
+      {% endif %}
+      {% if v.current_km %}
+      <span class="detail-pill">📍 {{ "{:,}".format(v.current_km) }} km</span>
+      {% endif %}
+      {% if v.next_service_km %}
+      <span class="detail-pill {{ 'pill-red' if v.current_km and v.current_km >= v.next_service_km else '' }}">
+        🔧 Next Service: {{ "{:,}".format(v.next_service_km) }} km
+      </span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if not vehicles %}
+  <div class="empty-state" style="padding:30px 20px;margin-top:12px;">
+    <div class="empty-icon">🚗</div><h3>No Vehicles Added</h3><p>Add your vehicle to track insurance, PUC and service</p>
+  </div>
+  {% endif %}
+
+  <!-- Fuel Log -->
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">⛽ Fuel Log</div>
+    <button class="btn-outline btn-full" id="showAddFuel" style="margin-bottom:10px;">+ Log Fuel</button>
+    <div class="form-card hidden" id="addFuelForm">
+      <div class="form-group"><label>Amount Paid (₹)</label><input type="number" id="f-amount" placeholder="0.00"></div>
+      <div class="form-group"><label>Litres</label><input type="number" id="f-litres" placeholder="Optional" step="0.1"></div>
+      <div class="form-group"><label>KM Reading</label><input type="number" id="f-km" placeholder="Optional"></div>
+      <div class="form-group"><label>Date</label><input type="date" id="f-date"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn-outline" id="cancelFuel">Cancel</button>
+        <button class="btn-primary" id="submitFuel">Add</button>
+      </div>
+    </div>
+    {% if fuel_logs %}
+      {% for log in fuel_logs %}
+      <div class="list-item" id="fuel-{{ log.id }}">
+        <div>
+          <div class="item-title">⛽ Fuel Fill</div>
+          <div class="item-sub">{{ log.date.strftime('%d %b %Y') }}{% if log.litres %} · {{ log.litres }}L{% endif %}{% if log.km_reading %} · {{ "{:,}".format(log.km_reading) }} km{% endif %}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="item-amount text-red">₹{{ "{:,.0f}".format(log.amount) }}</div>
+          <button class="del-btn" onclick="deleteFuel({{ log.id }})">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="text-muted" style="font-size:13px;text-align:center;padding:10px;">No fuel logs yet</p>
+    {% endif %}
+  </div>
+
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('f-date').value = today;
+
+function toggleForm(showId, formId, cancelId) {
+  document.getElementById(showId).addEventListener('click', () => { document.getElementById(showId).classList.add('hidden'); document.getElementById(formId).classList.remove('hidden'); });
+  document.getElementById(cancelId).addEventListener('click', () => { document.getElementById(showId).classList.remove('hidden'); document.getElementById(formId).classList.add('hidden'); });
+}
+toggleForm('showAddVehicle','addVehicleForm','cancelVehicle');
+toggleForm('showAddFuel','addFuelForm','cancelFuel');
+
+document.getElementById('submitVehicle').addEventListener('click', async () => {
+  const name = document.getElementById('v-name').value;
+  if (!name) return alert('Vehicle name required');
+  const res = await fetch('/vehicle/add', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name, registration_number: document.getElementById('v-reg').value, insurance_expiry: document.getElementById('v-insurance').value, puc_expiry: document.getElementById('v-puc').value, last_service_date: document.getElementById('v-service').value, current_km: document.getElementById('v-km').value, next_service_km: document.getElementById('v-next-km').value, notes: document.getElementById('v-notes').value }) });
+  if ((await res.json()).success) location.reload();
+});
+async function deleteVehicle(id) {
+  if (!confirm('Delete this vehicle?')) return;
+  if ((await (await fetch('/vehicle/delete/' + id, {method:'POST'})).json()).success) document.getElementById('vehicle-' + id).remove();
+}
+document.getElementById('submitFuel').addEventListener('click', async () => {
+  const amount = document.getElementById('f-amount').value;
+  if (!amount) return alert('Amount required');
+  const res = await fetch('/vehicle/fuel/add', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ amount, litres: document.getElementById('f-litres').value, km_reading: document.getElementById('f-km').value, date: document.getElementById('f-date').value }) });
+  if ((await res.json()).success) location.reload();
+});
+async function deleteFuel(id) {
+  if ((await (await fetch('/vehicle/fuel/delete/' + id, {method:'POST'})).json()).success) document.getElementById('fuel-' + id).remove();
+}
+</script>
+{% endblock %}

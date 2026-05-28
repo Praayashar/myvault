@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}Insurance — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>🛡️ Insurance Vault</h2></div>
+
+  <button class="btn-primary btn-full" id="showAddIns">+ Add Policy</button>
+
+  <div class="form-card hidden" id="addInsForm" style="margin-top:12px;">
+    <div class="form-group"><label>Type</label>
+      <select id="ins-type"><option>Life</option><option>Health</option><option>Vehicle</option><option>Home</option><option>Other</option></select>
+    </div>
+    <div class="form-group"><label>Provider</label><input type="text" id="ins-provider" placeholder="e.g. LIC, HDFC Ergo"></div>
+    <div class="form-group"><label>Policy Number</label><input type="text" id="ins-policy" placeholder="Optional"></div>
+    <div class="form-group"><label>Premium Amount (₹)</label><input type="number" id="ins-premium" placeholder="0.00"></div>
+    <div class="form-group"><label>Premium Due Date</label><input type="date" id="ins-due"></div>
+    <div class="form-group"><label>Sum Insured (₹)</label><input type="number" id="ins-sum" placeholder="0.00"></div>
+    <div class="form-group"><label>Nominee</label><input type="text" id="ins-nominee" placeholder="Optional"></div>
+    <div class="form-group"><label>Notes</label><input type="text" id="ins-notes" placeholder="Optional"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button class="btn-outline" id="cancelIns">Cancel</button>
+      <button class="btn-primary" id="submitIns">Add Policy</button>
+    </div>
+  </div>
+
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">My Policies</div>
+    {% if policies %}
+      {% for p in policies %}
+      {% set days = (p.premium_due_date - today).days if p.premium_due_date else 999 %}
+      <div class="list-item" id="ins-{{ p.id }}">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span>{% if p.type == 'Life' %}❤️{% elif p.type == 'Health' %}🏥{% elif p.type == 'Vehicle' %}🚗{% elif p.type == 'Home' %}🏠{% else %}📋{% endif %}</span>
+            <div class="item-title">{{ p.provider }}</div>
+            <span class="badge badge-green">{{ p.type }}</span>
+          </div>
+          {% if p.policy_number %}<div class="item-sub">Policy: {{ p.policy_number }}</div>{% endif %}
+          {% if p.premium_due_date %}
+          <div class="item-sub">
+            Due: {{ p.premium_due_date.strftime('%d %b %Y') }} ·
+            {% if days < 0 %}<span class="text-red">Overdue!</span>
+            {% elif days <= 7 %}<span class="text-red">{{ days }}d left</span>
+            {% elif days <= 30 %}<span style="color:var(--amber);">{{ days }}d left</span>
+            {% else %}{{ days }}d left{% endif %}
+          </div>
+          {% endif %}
+          {% if p.nominee %}<div class="item-sub">Nominee: {{ p.nominee }}</div>{% endif %}
+          {% if p.notes %}<div class="item-sub">📝 {{ p.notes }}</div>{% endif %}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+          {% if p.premium_amount %}<div class="item-amount">₹{{ "{:,.0f}".format(p.premium_amount) }}</div>{% endif %}
+          {% if p.sum_insured %}<div class="item-sub">Cover: ₹{{ "{:,.0f}".format(p.sum_insured) }}</div>{% endif %}
+          <button class="del-btn" onclick="deleteIns({{ p.id }})">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:20px;">
+        <div class="empty-icon">🛡️</div>
+        <p>No insurance policies added yet</p>
+      </div>
+    {% endif %}
+  </div>
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('ins-due').value = new Date().toISOString().split('T')[0];
+document.getElementById('showAddIns').addEventListener('click', () => {
+  document.getElementById('showAddIns').classList.add('hidden');
+  document.getElementById('addInsForm').classList.remove('hidden');
+});
+document.getElementById('cancelIns').addEventListener('click', () => {
+  document.getElementById('showAddIns').classList.remove('hidden');
+  document.getElementById('addInsForm').classList.add('hidden');
+});
+document.getElementById('submitIns').addEventListener('click', async () => {
+  const provider = document.getElementById('ins-provider').value;
+  if (!provider) return alert('Provider name required');
+  const res = await fetch('/insurance/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ type: document.getElementById('ins-type').value, provider, policy_number: document.getElementById('ins-policy').value, premium_amount: document.getElementById('ins-premium').value || 0, premium_due_date: document.getElementById('ins-due').value, sum_insured: document.getElementById('ins-sum').value || 0, nominee: document.getElementById('ins-nominee').value, notes: document.getElementById('ins-notes').value })
+  });
+  if ((await res.json()).success) location.reload();
+});
+async function deleteIns(id) {
+  if (!confirm('Delete this policy?')) return;
+  const res = await fetch('/insurance/delete/' + id, { method:'POST' });
+  if ((await res.json()).success) document.getElementById('ins-' + id).remove();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% block title %}AI Assistant — MyVault{% endblock %}
+
+{% block content %}
+<div class="ai-page">
+  <div class="ai-header">
+    <div class="ai-avatar">🤖</div>
+    <div>
+      <div class="ai-title">MyVault AI</div>
+      <div class="ai-subtitle">Your personal financial advisor</div>
+    </div>
+  </div>
+
+  <div class="ai-messages" id="aiMessages">
+    <!-- Welcome message -->
+    <div class="ai-msg ai-msg-bot">
+      <div class="ai-bubble">
+        👋 Hello {{ current_user.name.split()[0] }}! I'm your MyVault AI assistant.<br><br>
+        I have access to your financial data and can help you with:
+        <ul style="margin-top:8px;padding-left:16px;">
+          <li>Spending analysis & insights</li>
+          <li>Budget advice</li>
+          <li>Savings recommendations</li>
+          <li>Investment queries</li>
+          <li>Any financial question!</li>
+        </ul>
+        What would you like to know?
+      </div>
+    </div>
+
+    <!-- Quick prompts -->
+    <div class="quick-prompts" id="quickPrompts">
+      <button class="quick-btn" onclick="sendQuick('How am I doing financially this month?')">📊 Monthly summary</button>
+      <button class="quick-btn" onclick="sendQuick('Where am I overspending?')">⚠️ Overspending</button>
+      <button class="quick-btn" onclick="sendQuick('How can I save more money?')">💰 Save more</button>
+      <button class="quick-btn" onclick="sendQuick('What subscriptions should I cancel?')">🔄 Review subscriptions</button>
+    </div>
+  </div>
+
+  <div class="ai-input-area">
+    <div class="ai-input-row">
+      <textarea id="aiInput" placeholder="Ask me anything about your finances..." rows="1" onkeydown="handleKey(event)"></textarea>
+      <button class="ai-send-btn" id="aiSendBtn" onclick="sendMessage()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+    <div class="ai-disclaimer">AI responses are based on your MyVault data. Always verify important financial decisions.</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let conversationHistory = [];
+let isLoading = false;
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function sendQuick(msg) {
+  document.getElementById('aiInput').value = msg;
+  document.getElementById('quickPrompts').style.display = 'none';
+  sendMessage();
+}
+
+async function sendMessage() {
+  if (isLoading) return;
+  const input = document.getElementById('aiInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('quickPrompts').style.display = 'none';
+
+  appendMessage('user', msg);
+  conversationHistory.push({ role: 'user', content: msg });
+
+  isLoading = true;
+  document.getElementById('aiSendBtn').disabled = true;
+  const typingEl = appendTyping();
+
+  try {
+    // Get system prompt and messages from backend
+    const prepRes = await fetch('/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, history: conversationHistory.slice(0, -1) })
+    });
+    const prepData = await prepRes.json();
+
+    // Call Claude API directly from browser
+    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: prepData.system_prompt,
+        messages: prepData.messages
+      })
+    });
+
+    const claudeData = await claudeRes.json();
+    typingEl.remove();
+
+    if (claudeData.content && claudeData.content[0]) {
+      const reply = claudeData.content[0].text;
+      appendMessage('bot', reply);
+      conversationHistory.push({ role: 'assistant', content: reply });
+    } else {
+      appendMessage('bot', 'Sorry, I could not get a response. Please try again.');
+    }
+  } catch (err) {
+    typingEl.remove();
+    appendMessage('bot', '⚠️ Connection error. Please check your internet and try again.');
+  }
+
+  isLoading = false;
+  document.getElementById('aiSendBtn').disabled = false;
+}
+
+function appendMessage(role, text) {
+  const container = document.getElementById('aiMessages');
+  const div = document.createElement('div');
+  div.className = `ai-msg ai-msg-${role === 'user' ? 'user' : 'bot'}`;
+  const bubble = document.createElement('div');
+  bubble.className = 'ai-bubble';
+  bubble.innerHTML = formatMessage(text);
+  div.appendChild(bubble);
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+function appendTyping() {
+  const container = document.getElementById('aiMessages');
+  const div = document.createElement('div');
+  div.className = 'ai-msg ai-msg-bot';
+  div.innerHTML = '<div class="ai-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+function formatMessage(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>')
+    .replace(/• /g, '• ');
+}
+
+// Auto-resize textarea
+document.getElementById('aiInput').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+</script>
+{% endblock %}

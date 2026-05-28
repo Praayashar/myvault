@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}Account Directory — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>🏦 Account Directory</h2></div>
+
+  <button class="btn-primary btn-full" id="showAddAcc">+ Add Account</button>
+  <div class="form-card hidden" id="addAccForm">
+    <div class="form-group"><label>Account Type</label>
+      <select id="ac-type">
+        <option>Bank Account</option><option>Savings Account</option><option>Current Account</option>
+        <option>Demat Account</option><option>Broker Account</option><option>Wallet</option><option>Other</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Bank / Provider Name</label><input type="text" id="ac-name" placeholder="e.g. SBI, HDFC Bank, Zerodha"></div>
+    <div class="form-group"><label>Account Number</label><input type="text" id="ac-number" placeholder="Optional"></div>
+    <div class="form-group"><label>IFSC Code</label><input type="text" id="ac-ifsc" placeholder="Optional"></div>
+    <div class="form-group"><label>Branch</label><input type="text" id="ac-branch" placeholder="Optional"></div>
+    <div class="form-group"><label>Notes</label><input type="text" id="ac-notes" placeholder="e.g. Primary salary account"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button class="btn-outline" id="cancelAcc">Cancel</button>
+      <button class="btn-primary" id="submitAcc">Save</button>
+    </div>
+  </div>
+
+  {% if items %}
+    {% set types = items | map(attribute='account_type') | unique | list %}
+    {% for atype in types %}
+    {% set type_items = items | selectattr('account_type', 'equalto', atype) | list %}
+    <div class="section-card" style="margin-top:12px;">
+      <div class="section-header">
+        {% if 'Bank' in atype or 'Savings' in atype or 'Current' in atype %}🏦{% elif 'Demat' in atype or 'Broker' in atype %}📊{% elif 'Wallet' in atype %}👛{% else %}💳{% endif %}
+        {{ atype }}
+      </div>
+      {% for item in type_items %}
+      <div class="list-item" id="acc-{{ item.id }}">
+        <div style="flex:1;">
+          <div class="item-title">{{ item.account_name }}</div>
+          {% if item.account_number %}
+          <div class="item-sub">A/C: ••••{{ item.account_number[-4:] if item.account_number|length >= 4 else item.account_number }}</div>
+          {% endif %}
+          {% if item.ifsc_code %}<div class="item-sub">IFSC: {{ item.ifsc_code }}</div>{% endif %}
+          {% if item.branch %}<div class="item-sub">Branch: {{ item.branch }}</div>{% endif %}
+          {% if item.notes %}<div class="item-sub">📝 {{ item.notes }}</div>{% endif %}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          {% if item.account_number %}
+          <button class="icon-btn" title="Copy Account Number" onclick="copyText('{{ item.account_number }}', this)">📋</button>
+          {% endif %}
+          <button class="del-btn" onclick="deleteAcc({{ item.id }})">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state" style="padding:40px 20px;margin-top:12px;">
+      <div class="empty-icon">🏦</div>
+      <h3>No Accounts Added</h3>
+      <p>Store all your bank and investment account details</p>
+    </div>
+  {% endif %}
+
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('showAddAcc').addEventListener('click', () => { document.getElementById('showAddAcc').classList.add('hidden'); document.getElementById('addAccForm').classList.remove('hidden'); });
+document.getElementById('cancelAcc').addEventListener('click', () => { document.getElementById('showAddAcc').classList.remove('hidden'); document.getElementById('addAccForm').classList.add('hidden'); });
+document.getElementById('submitAcc').addEventListener('click', async () => {
+  const name = document.getElementById('ac-name').value;
+  if (!name) return alert('Bank/Provider name required');
+  const res = await fetch('/vault/accounts/add', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ account_type: document.getElementById('ac-type').value, account_name: name, account_number: document.getElementById('ac-number').value, ifsc_code: document.getElementById('ac-ifsc').value, branch: document.getElementById('ac-branch').value, notes: document.getElementById('ac-notes').value }) });
+  if ((await res.json()).success) location.reload();
+});
+
+async function copyText(text, btn) {
+  await navigator.clipboard.writeText(text);
+  const orig = btn.textContent;
+  btn.textContent = '✅';
+  setTimeout(() => btn.textContent = orig, 1500);
+}
+
+async function deleteAcc(id) {
+  if (!confirm('Delete this account?')) return;
+  if ((await (await fetch('/vault/accounts/delete/' + id, {method:'POST'})).json()).success) document.getElementById('acc-' + id).remove();
+}
+</script>
+{% endblock %}

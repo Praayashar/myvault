@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Calendar — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting">
+    <h2>📅 Calendar</h2>
+  </div>
+
+  <!-- Month Navigation -->
+  <div class="section-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <a href="{{ url_for('finance.calendar_view', year=prev_year, month=prev_month) }}" class="btn-outline btn-sm">‹</a>
+      <span style="font-size:16px;font-weight:700;">{{ month_name }}</span>
+      <a href="{{ url_for('finance.calendar_view', year=next_year, month=next_month) }}" class="btn-outline btn-sm">›</a>
+    </div>
+
+    <!-- Day Headers -->
+    <div class="cal-grid">
+      {% for day in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
+      <div class="cal-header">{{ day }}</div>
+      {% endfor %}
+
+      <!-- Empty cells before month start -->
+      {% set first_weekday = month_start.weekday() %}
+      {% for i in range(first_weekday) %}
+      <div class="cal-cell empty"></div>
+      {% endfor %}
+
+      <!-- Days -->
+      {% set days_in_month = calendar.monthrange(year, month)[1] %}
+      {% for day in range(1, days_in_month + 1) %}
+        {% set d = '%04d-%02d-%02d' % (year, month, day) %}
+        {% set amt = cal_data.get(d, 0) %}
+        {% set is_today = (today.year == year and today.month == month and today.day == day) %}
+        <div class="cal-cell {{ 'today' if is_today else '' }} {{ 'has-expense' if amt > 0 else '' }}">
+          <div class="cal-day">{{ day }}</div>
+          {% if amt > 0 %}
+          <div class="cal-amt">₹{{ "{:,.0f}".format(amt) }}</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Daily Breakdown -->
+  {% if cal_data %}
+  <div class="section-card">
+    <div class="section-header">Daily Spending</div>
+    {% for d, amt in cal_data.items() | sort(reverse=True) %}
+    <div class="list-item">
+      <div class="item-title">{{ d | replace('-', '/') }}</div>
+      <div class="item-amount text-red">₹{{ "{:,.0f}".format(amt) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}

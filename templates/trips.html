@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Trip Planner — MyVault{% endblock %}
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>✈️ Trip Planner</h2></div>
+
+  <button class="btn-primary btn-full" id="showAddTrip">+ Plan New Trip</button>
+  <div class="form-card hidden" id="addTripForm">
+    <div class="form-group"><label>Trip Name</label><input type="text" id="tr-name" placeholder="e.g. Goa Trip, Shirdi Darshan"></div>
+    <div class="form-group"><label>Destination</label><input type="text" id="tr-dest" placeholder="e.g. Goa, Shirdi"></div>
+    <div class="form-group"><label>Total Budget (₹)</label><input type="number" id="tr-budget" placeholder="0.00"></div>
+    <div class="form-group"><label>Start Date</label><input type="date" id="tr-start"></div>
+    <div class="form-group"><label>End Date</label><input type="date" id="tr-end"></div>
+    <div class="form-group"><label>Notes</label><input type="text" id="tr-notes" placeholder="Optional"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button class="btn-outline" id="cancelTrip">Cancel</button>
+      <button class="btn-primary" id="submitTrip">Create Trip</button>
+    </div>
+  </div>
+
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">All Trips</div>
+    {% if trips %}
+      {% for trip in trips %}
+      <div class="list-item" id="trip-{{ trip.id }}">
+        <div style="flex:1;">
+          <div class="item-title">✈️ {{ trip.name }}</div>
+          <div class="item-sub">
+            {% if trip.destination %}{{ trip.destination }} · {% endif %}
+            {% if trip.start_date %}{{ trip.start_date.strftime('%d %b %Y') }}{% endif %}
+            {% if trip.end_date %} → {{ trip.end_date.strftime('%d %b') }}{% endif %}
+          </div>
+          {% if trip.budget %}<div class="item-sub">Budget: ₹{{ "{:,.0f}".format(trip.budget) }}</div>{% endif %}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <a href="{{ url_for('life.trip_detail', id=trip.id) }}" class="btn-sm btn-outline">View</a>
+          <button class="del-btn" onclick="deleteTrip({{ trip.id }})">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:20px;"><div class="empty-icon">✈️</div><p>No trips planned yet</p></div>
+    {% endif %}
+  </div>
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('tr-start').value = new Date().toISOString().split('T')[0];
+document.getElementById('showAddTrip').addEventListener('click', () => { document.getElementById('showAddTrip').classList.add('hidden'); document.getElementById('addTripForm').classList.remove('hidden'); });
+document.getElementById('cancelTrip').addEventListener('click', () => { document.getElementById('showAddTrip').classList.remove('hidden'); document.getElementById('addTripForm').classList.add('hidden'); });
+document.getElementById('submitTrip').addEventListener('click', async () => {
+  const name = document.getElementById('tr-name').value;
+  if (!name) return alert('Trip name required');
+  const res = await fetch('/trips/add', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name, destination: document.getElementById('tr-dest').value, budget: document.getElementById('tr-budget').value || 0, start_date: document.getElementById('tr-start').value, end_date: document.getElementById('tr-end').value, notes: document.getElementById('tr-notes').value }) });
+  const data = await res.json();
+  if (data.success) location.reload();
+});
+async function deleteTrip(id) {
+  if (!confirm('Delete this trip and all its expenses?')) return;
+  if ((await (await fetch('/trips/delete/' + id, {method:'POST'})).json()).success) document.getElementById('trip-' + id).remove();
+}
+</script>
+{% endblock %}

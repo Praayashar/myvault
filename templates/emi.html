@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block title %}EMI Tracker — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>📦 EMI Tracker</h2></div>
+
+  <div class="section-card">
+    <div class="section-header">
+      <span>Total EMI Burden</span>
+      <span class="text-red" style="font-size:16px;font-weight:700;">₹{{ "{:,.0f}".format(total_emi) }}/mo</span>
+    </div>
+  </div>
+
+  <button class="btn-primary btn-full" id="showAddEmi">+ Add EMI</button>
+
+  <div class="form-card hidden" id="addEmiForm" style="margin-top:12px;">
+    <div class="form-group"><label>Name</label><input type="text" id="emi-name" placeholder="e.g. iPhone EMI, Bike Loan"></div>
+    <div class="form-group"><label>Total Amount (₹)</label><input type="number" id="emi-total" placeholder="0.00"></div>
+    <div class="form-group"><label>EMI Amount / Month (₹)</label><input type="number" id="emi-amount" placeholder="0.00"></div>
+    <div class="form-group"><label>Total Installments</label><input type="number" id="emi-total-inst" placeholder="e.g. 12"></div>
+    <div class="form-group"><label>Paid Installments</label><input type="number" id="emi-paid" placeholder="0" value="0"></div>
+    <div class="form-group"><label>Due Date (Day of Month)</label><input type="number" id="emi-due" placeholder="e.g. 5" min="1" max="31"></div>
+    <div class="form-group"><label>Start Date</label><input type="date" id="emi-start"></div>
+    <div class="form-group"><label>Notes</label><input type="text" id="emi-notes" placeholder="Optional"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button class="btn-outline" id="cancelEmi">Cancel</button>
+      <button class="btn-primary" id="submitEmi">Add EMI</button>
+    </div>
+  </div>
+
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">Active EMIs</div>
+    {% if emis %}
+      {% for emi in emis %}
+      {% set remaining = emi.total_installments - emi.paid_installments %}
+      {% set pct = (emi.paid_installments / emi.total_installments * 100) | round %}
+      <div class="emi-card" id="emi-{{ emi.id }}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div class="item-title">{{ emi.name }}</div>
+          <button class="del-btn" onclick="deleteEmi({{ emi.id }})">✕</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span class="item-sub">₹{{ "{:,.0f}".format(emi.emi_amount) }}/mo</span>
+          <span class="item-sub">Due: {{ emi.due_date }}th of month</span>
+        </div>
+        <div class="progress-bar" style="margin-bottom:6px;">
+          <div class="progress-fill" style="width:{{ pct }}%;background:{% if remaining == 0 %}var(--green-mid){% else %}var(--green-dark){% endif %};"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="text-muted" style="font-size:12px;">{{ emi.paid_installments }}/{{ emi.total_installments }} paid · {{ remaining }} left</span>
+          {% if remaining > 0 %}
+          <button class="btn-sm btn-outline" onclick="payEmi({{ emi.id }}, this)">✓ Mark Paid</button>
+          {% else %}
+          <span class="badge badge-green">✅ Complete</span>
+          {% endif %}
+        </div>
+        {% if emi.notes %}<div class="item-sub" style="margin-top:4px;">📝 {{ emi.notes }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:20px;">
+        <div class="empty-icon">📦</div>
+        <p>No EMIs added yet</p>
+      </div>
+    {% endif %}
+  </div>
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('emi-start').value = new Date().toISOString().split('T')[0];
+document.getElementById('showAddEmi').addEventListener('click', () => {
+  document.getElementById('showAddEmi').classList.add('hidden');
+  document.getElementById('addEmiForm').classList.remove('hidden');
+});
+document.getElementById('cancelEmi').addEventListener('click', () => {
+  document.getElementById('showAddEmi').classList.remove('hidden');
+  document.getElementById('addEmiForm').classList.add('hidden');
+});
+document.getElementById('submitEmi').addEventListener('click', async () => {
+  const name = document.getElementById('emi-name').value;
+  const total_amount = document.getElementById('emi-total').value;
+  const emi_amount = document.getElementById('emi-amount').value;
+  const total_installments = document.getElementById('emi-total-inst').value;
+  if (!name || !emi_amount || !total_installments) return alert('Name, EMI amount and installments required');
+  const res = await fetch('/emi/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name, total_amount: total_amount || emi_amount * total_installments, emi_amount, total_installments, paid_installments: document.getElementById('emi-paid').value || 0, due_date: document.getElementById('emi-due').value || 1, start_date: document.getElementById('emi-start').value, notes: document.getElementById('emi-notes').value })
+  });
+  if ((await res.json()).success) location.reload();
+});
+async function payEmi(id, btn) {
+  const res = await fetch('/emi/pay/' + id, { method:'POST' });
+  const data = await res.json();
+  if (data.success) location.reload();
+}
+async function deleteEmi(id) {
+  if (!confirm('Delete this EMI?')) return;
+  const res = await fetch('/emi/delete/' + id, { method:'POST' });
+  if ((await res.json()).success) document.getElementById('emi-' + id).remove();
+}
+</script>
+{% endblock %}

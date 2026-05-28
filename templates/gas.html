@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}Gas Cylinder — MyVault{% endblock %}
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>🛢️ Gas Cylinder</h2></div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Spent</div>
+      <div class="stat-value red">₹{{ "{:,.0f}".format(total_spent) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Days/Cylinder</div>
+      <div class="stat-value green">{{ avg_days or '—' }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Next Est.</div>
+      <div class="stat-value" style="font-size:13px;">{{ next_est.strftime('%d %b') if next_est else '—' }}</div>
+    </div>
+  </div>
+
+  <button class="btn-primary btn-full" id="showAddGas">+ Log Cylinder Booking</button>
+  <div class="form-card hidden" id="addGasForm">
+    <div class="form-group"><label>Amount Paid (₹)</label><input type="number" id="g-amount" placeholder="0.00"></div>
+    <div class="form-group"><label>Date</label><input type="date" id="g-date"></div>
+    <div class="form-group"><label>Notes</label><input type="text" id="g-notes" placeholder="e.g. Indane, HP Gas"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button class="btn-outline" id="cancelGas">Cancel</button>
+      <button class="btn-primary" id="submitGas">Log</button>
+    </div>
+  </div>
+
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">Cylinder History</div>
+    {% if logs %}
+      {% for log in logs %}
+      <div class="list-item" id="gas-{{ log.id }}">
+        <div>
+          <div class="item-title">🛢️ Cylinder Booked</div>
+          <div class="item-sub">{{ log.date.strftime('%d %b %Y') }}{% if log.notes %} · {{ log.notes }}{% endif %}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          {% if log.amount %}<div class="item-amount text-red">₹{{ "{:,.0f}".format(log.amount) }}</div>{% endif %}
+          <button class="del-btn" onclick="deleteGas({{ log.id }})">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:20px;"><div class="empty-icon">🛢️</div><p>No cylinder logs yet</p></div>
+    {% endif %}
+  </div>
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('g-date').value = new Date().toISOString().split('T')[0];
+document.getElementById('showAddGas').addEventListener('click', () => { document.getElementById('showAddGas').classList.add('hidden'); document.getElementById('addGasForm').classList.remove('hidden'); });
+document.getElementById('cancelGas').addEventListener('click', () => { document.getElementById('showAddGas').classList.remove('hidden'); document.getElementById('addGasForm').classList.add('hidden'); });
+document.getElementById('submitGas').addEventListener('click', async () => {
+  const amount = document.getElementById('g-amount').value;
+  const res = await fetch('/gas/add', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ amount: amount || 0, date: document.getElementById('g-date').value, notes: document.getElementById('g-notes').value }) });
+  if ((await res.json()).success) location.reload();
+});
+async function deleteGas(id) {
+  if ((await (await fetch('/gas/delete/' + id, {method:'POST'})).json()).success) document.getElementById('gas-' + id).remove();
+}
+</script>
+{% endblock %}

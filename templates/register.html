@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}{% if first_setup %}Setup MyVault{% else %}New Profile{% endif %} — MyVault{% endblock %}
+
+{% block unauth_content %}
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-icon">🔐</div>
+      <h1>{% if first_setup %}Welcome to MyVault{% else %}Add Profile{% endif %}</h1>
+      <p>{% if first_setup %}Let's set up your account first{% else %}Create a profile for a family member{% endif %}</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" name="name" placeholder="e.g. Rahul Shah" required autofocus>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="email" placeholder="your@email.com" required>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" placeholder="Create a strong password" required minlength="6">
+      </div>
+      <button type="submit" class="btn-primary btn-full">
+        {% if first_setup %}Create My Account{% else %}Add Profile{% endif %}
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      <a href="{{ url_for('auth.login') }}">Back to Login</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

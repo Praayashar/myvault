@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}{{ trip.name }} — MyVault{% endblock %}
+{% block content %}
+<div class="dashboard">
+  <div class="greeting">
+    <div>
+      <h2>✈️ {{ trip.name }}</h2>
+      {% if trip.destination %}<p class="text-muted">📍 {{ trip.destination }}</p>{% endif %}
+    </div>
+    <a href="{{ url_for('life.trips') }}" class="btn-outline btn-sm">← Back</a>
+  </div>
+
+  <!-- Budget Overview -->
+  <div class="net-worth-card">
+    <div class="nw-label">Trip Budget</div>
+    <div class="nw-amount">₹{{ "{:,.0f}".format(trip.budget or 0) }}</div>
+    {% if trip.budget %}
+    {% set pct = [(total_spent / trip.budget * 100), 100] | min | round %}
+    <div style="margin-top:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--green-pale);margin-bottom:4px;">
+        <span>Spent: ₹{{ "{:,.0f}".format(total_spent) }}</span>
+        <span>Left: ₹{{ "{:,.0f}".format(remaining) }}</span>
+      </div>
+      <div style="background:rgba(255,255,255,0.2);border-radius:99px;height:8px;">
+        <div style="width:{{ pct }}%;height:100%;background:{% if pct > 90 %}#ef4444{% elif pct > 70 %}#f59e0b{% else %}#74C69D{% endif %};border-radius:99px;"></div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:var(--green-pale);margin-top:3px;">{{ pct }}% used</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Add Expense -->
+  <button class="btn-primary btn-full" id="showAddTE">+ Add Trip Expense</button>
+  <div class="form-card hidden" id="addTEForm">
+    <div class="form-group"><label>Category</label>
+      <select id="te-cat">
+        <option>Hotel</option><option>Food</option><option>Travel</option>
+        <option>Shopping</option><option>Entry Tickets</option><option>Fuel</option><option>Other</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Description</label><input type="text" id="te-desc" placeholder="e.g. Hotel check-in, Dinner"></div>
+    <div class="form-group"><label>Amount (₹)</label><input type="number" id="te-amount" placeholder="0.00"></div>
+    <div class="form-group"><label>Date</label><input type="date" id="te-date"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button class="btn-outline" id="cancelTE">Cancel</button>
+      <button class="btn-primary" id="submitTE">Add</button>
+    </div>
+  </div>
+
+  <!-- Category Breakdown -->
+  {% if expenses %}
+  {% set categories = {} %}
+  {% for exp in expenses %}
+    {% if exp.category in categories %}
+      {% set _ = categories.update({exp.category: categories[exp.category] + exp.amount}) %}
+    {% else %}
+      {% set _ = categories.update({exp.category: exp.amount}) %}
+    {% endif %}
+  {% endfor %}
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">By Category</div>
+    {% for cat, amt in categories.items() %}
+    <div class="list-item">
+      <div class="item-title">{{ cat }}</div>
+      <div class="item-amount text-red">₹{{ "{:,.0f}".format(amt) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Expenses List -->
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">All Expenses</div>
+    {% if expenses %}
+      {% for exp in expenses %}
+      <div class="list-item" id="te-{{ exp.id }}">
+        <div>
+          <div class="item-title">{{ exp.description or exp.category }}</div>
+          <div class="item-sub">{{ exp.category }} · {{ exp.date.strftime('%d %b %Y') }}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="item-amount text-red">₹{{ "{:,.0f}".format(exp.amount) }}</div>
+          <button class="del-btn" onclick="deleteTE({{ exp.id }})">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:20px;"><p>No expenses logged for this trip yet</p></div>
+    {% endif %}
+  </div>
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('te-date').value = new Date().toISOString().split('T')[0];
+document.getElementById('showAddTE').addEventListener('click', () => { document.getElementById('showAddTE').classList.add('hidden'); document.getElementById('addTEForm').classList.remove('hidden'); });
+document.getElementById('cancelTE').addEventListener('click', () => { document.getElementById('showAddTE').classList.remove('hidden'); document.getElementById('addTEForm').classList.add('hidden'); });
+document.getElementById('submitTE').addEventListener('click', async () => {
+  const amount = document.getElementById('te-amount').value;
+  if (!amount) return alert('Amount required');
+  const res = await fetch('/trips/{{ trip.id }}/expense/add', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ category: document.getElementById('te-cat').value, description: document.getElementById('te-desc').value, amount, date: document.getElementById('te-date').value }) });
+  if ((await res.json()).success) location.reload();
+});
+async function deleteTE(id) {
+  if ((await (await fetch('/trips/expense/delete/' + id, {method:'POST'})).json()).success) document.getElementById('te-' + id).remove();
+}
+</script>
+{% endblock %}

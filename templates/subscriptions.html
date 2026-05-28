@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block title %}Subscriptions — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>🔄 Subscriptions</h2></div>
+
+  <div class="section-card">
+    <div class="section-header">
+      <span>Monthly Cost</span>
+      <span class="text-red" style="font-size:16px;font-weight:700;">₹{{ "{:,.0f}".format(total_monthly) }}/mo</span>
+    </div>
+  </div>
+
+  <button class="btn-primary btn-full" id="showAddSub">+ Add Subscription</button>
+
+  <div class="form-card hidden" id="addSubForm" style="margin-top:12px;">
+    <div class="form-group"><label>Name</label><input type="text" id="sub-name" placeholder="e.g. Netflix, Spotify"></div>
+    <div class="form-group"><label>Amount (₹)</label><input type="number" id="sub-amount" placeholder="0.00" step="0.01"></div>
+    <div class="form-group"><label>Billing Cycle</label>
+      <select id="sub-cycle"><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option></select>
+    </div>
+    <div class="form-group"><label>Next Renewal Date</label><input type="date" id="sub-date"></div>
+    <div class="form-group"><label>Category</label>
+      <select id="sub-category">
+        <option>Entertainment</option><option>Music</option><option>Cloud Storage</option>
+        <option>News</option><option>Software</option><option>Gaming</option><option>Other</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Notes</label><input type="text" id="sub-notes" placeholder="Optional"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button class="btn-outline" id="cancelSub">Cancel</button>
+      <button class="btn-primary" id="submitSub">Add</button>
+    </div>
+  </div>
+
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">All Subscriptions</div>
+    {% if subs %}
+      {% for sub in subs %}
+      {% set days = (sub.renewal_date - today).days %}
+      <div class="list-item" id="sub-{{ sub.id }}">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div class="item-title">{{ sub.name }}</div>
+            {% if not sub.is_active %}<span class="badge" style="background:#f3f4f6;color:#6b7280;">Paused</span>{% endif %}
+          </div>
+          <div class="item-sub">{{ sub.billing_cycle.title() }} · {{ sub.category }}</div>
+          <div class="item-sub">
+            Renews {{ sub.renewal_date.strftime('%d %b %Y') }} ·
+            {% if days < 0 %}<span class="text-red">Overdue!</span>
+            {% elif days == 0 %}<span class="text-red">Today!</span>
+            {% elif days <= 2 %}<span class="text-red">{{ days }}d left</span>
+            {% elif days <= 7 %}<span style="color:var(--amber);">{{ days }}d left</span>
+            {% else %}{{ days }}d left{% endif %}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+          <div class="item-amount">₹{{ "{:,.0f}".format(sub.amount) }}</div>
+          <div style="display:flex;gap:6px;">
+            <button class="icon-btn" title="Mark Renewed" onclick="renewSub({{ sub.id }})">🔄</button>
+            <button class="icon-btn" title="{{ 'Resume' if not sub.is_active else 'Pause' }}" onclick="toggleSub({{ sub.id }})">{{ '▶' if not sub.is_active else '⏸' }}</button>
+            <button class="del-btn" onclick="deleteSub({{ sub.id }})">✕</button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:20px;">
+        <div class="empty-icon">🔄</div>
+        <p>No subscriptions added yet</p>
+      </div>
+    {% endif %}
+  </div>
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('sub-date').value = new Date().toISOString().split('T')[0];
+document.getElementById('showAddSub').addEventListener('click', () => {
+  document.getElementById('showAddSub').classList.add('hidden');
+  document.getElementById('addSubForm').classList.remove('hidden');
+});
+document.getElementById('cancelSub').addEventListener('click', () => {
+  document.getElementById('showAddSub').classList.remove('hidden');
+  document.getElementById('addSubForm').classList.add('hidden');
+});
+document.getElementById('submitSub').addEventListener('click', async () => {
+  const name = document.getElementById('sub-name').value;
+  const amount = document.getElementById('sub-amount').value;
+  const renewal_date = document.getElementById('sub-date').value;
+  if (!name || !amount || !renewal_date) return alert('Name, amount and date required');
+  const res = await fetch('/subscriptions/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name, amount, renewal_date, billing_cycle: document.getElementById('sub-cycle').value, category: document.getElementById('sub-category').value, notes: document.getElementById('sub-notes').value })
+  });
+  if ((await res.json()).success) location.reload();
+});
+async function toggleSub(id) {
+  const res = await fetch('/subscriptions/toggle/' + id, { method:'POST' });
+  if ((await res.json()).success) location.reload();
+}
+async function renewSub(id) {
+  const res = await fetch('/subscriptions/renew/' + id, { method:'POST' });
+  if ((await res.json()).success) { location.reload(); }
+}
+async function deleteSub(id) {
+  if (!confirm('Delete this subscription?')) return;
+  const res = await fetch('/subscriptions/delete/' + id, { method:'POST' });
+  if ((await res.json()).success) document.getElementById('sub-' + id).remove();
+}
+</script>
+{% endblock %}

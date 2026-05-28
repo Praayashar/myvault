@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% block title %}EmailJS Setup — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>📧 Email Setup</h2></div>
+
+  {% if config.EMAILJS_PUBLIC_KEY %}
+  <div class="section-card" style="background:var(--green-pale);border-color:var(--green-light);">
+    <div style="color:var(--green-dark);font-weight:600;">✅ EmailJS is configured and active!</div>
+    <div class="item-sub" style="margin-top:4px;">Emails will be sent from your connected Gmail account.</div>
+  </div>
+  {% else %}
+  <div class="alert-card">
+    <div class="alert-title">⚠️ EmailJS not configured yet</div>
+    <div style="font-size:13px;color:#92400e;">Follow the steps below to enable email reminders.</div>
+  </div>
+  {% endif %}
+
+  <!-- Step by step guide -->
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">Step 1 — Create EmailJS Account</div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">EmailJS is free — 200 emails/month, no server needed.</p>
+    <a href="https://emailjs.com" target="_blank" class="btn-primary btn-full" style="display:block;text-align:center;text-decoration:none;">
+      Open EmailJS.com →
+    </a>
+  </div>
+
+  <div class="section-card">
+    <div class="section-header">Step 2 — Connect Gmail</div>
+    <ol style="font-size:13px;color:var(--text-muted);padding-left:18px;line-height:2;">
+      <li>Login to EmailJS dashboard</li>
+      <li>Go to <strong>Email Services</strong> → <strong>Add New Service</strong></li>
+      <li>Choose <strong>Gmail</strong></li>
+      <li>Click <strong>Connect Account</strong> → allow permissions</li>
+      <li>Note your <strong>Service ID</strong> (looks like: <code style="background:var(--green-pale);padding:2px 6px;border-radius:4px;">service_xxxxxx</code>)</li>
+    </ol>
+  </div>
+
+  <div class="section-card">
+    <div class="section-header">Step 3 — Create Monthly Report Template</div>
+    <ol style="font-size:13px;color:var(--text-muted);padding-left:18px;line-height:2;">
+      <li>Go to <strong>Email Templates</strong> → <strong>Create New</strong></li>
+      <li>Name it: <strong>MyVault Monthly Report</strong></li>
+      <li>Set <strong>To Email</strong>: <code style="background:var(--green-pale);padding:2px 6px;border-radius:4px;">{{"{{"}}to_email{{"}}"}}</code></li>
+      <li>Set <strong>Subject</strong>: <code style="background:var(--green-pale);padding:2px 6px;border-radius:4px;">MyVault Report — {{"{{"}}month_name{{"}}"}}</code></li>
+      <li>Paste the body below into the template</li>
+      <li>Note your <strong>Template ID</strong> (looks like: <code style="background:var(--green-pale);padding:2px 6px;border-radius:4px;">template_xxxxxx</code>)</li>
+    </ol>
+    <div style="background:#1e1e1e;color:#d4d4d4;padding:14px;border-radius:8px;font-size:12px;font-family:monospace;margin-top:10px;white-space:pre-line;overflow-x:auto;">Hi {{"{{"}}to_name{{"}}"}},
+
+Here is your MyVault report for {{"{{"}}month_name{{"}}"}}.
+
+FINANCIAL SUMMARY
+─────────────────
+Income:       {{"{{"}}monthly_income{{"}}"}}
+Expenses:     {{"{{"}}monthly_expense{{"}}"}}
+{{"{{"}}balance_label{{"}}"}}:      {{"{{"}}balance{{"}}"}}
+Savings Rate: {{"{{"}}savings_rate{{"}}"}}
+
+TOP SPENDING CATEGORIES
+───────────────────────
+{{"{{"}}top_categories{{"}}"}}
+
+UPCOMING RENEWALS
+─────────────────
+{{"{{"}}upcoming_renewals{{"}}"}}
+
+Stay on track!
+— MyVault</div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-header">Step 4 — Create Renewal Reminder Template</div>
+    <ol style="font-size:13px;color:var(--text-muted);padding-left:18px;line-height:2;">
+      <li>Create another template named: <strong>MyVault Renewal Reminder</strong></li>
+      <li>Set <strong>To Email</strong>: <code style="background:var(--green-pale);padding:2px 6px;border-radius:4px;">{{"{{"}}to_email{{"}}"}}</code></li>
+      <li>Set <strong>Subject</strong>: <code style="background:var(--green-pale);padding:2px 6px;border-radius:4px;">🔔 Renewal Reminder — {{"{{"}}sub_name{{"}}"}}</code></li>
+      <li>Paste body below and note its <strong>Template ID</strong></li>
+    </ol>
+    <div style="background:#1e1e1e;color:#d4d4d4;padding:14px;border-radius:8px;font-size:12px;font-family:monospace;margin-top:10px;white-space:pre-line;">Hi {{"{{"}}to_name{{"}}"}},
+
+Reminder: {{"{{"}}sub_name{{"}}"}} renews in 2 days.
+
+Amount: {{"{{"}}sub_amount{{"}}"}}
+Renewal Date: {{"{{"}}renewal_date{{"}}"}}
+
+Log into MyVault to manage it.
+— MyVault</div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-header">Step 5 — Get Your Public Key</div>
+    <ol style="font-size:13px;color:var(--text-muted);padding-left:18px;line-height:2;">
+      <li>In EmailJS dashboard → <strong>Account</strong> → <strong>General</strong></li>
+      <li>Copy your <strong>Public Key</strong></li>
+    </ol>
+  </div>
+
+  <div class="section-card">
+    <div class="section-header">Step 6 — Add Keys to Render</div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Go to your Render dashboard → MyVault service → Environment → add these:</p>
+    <div class="env-table">
+      <div class="env-row"><span class="env-key">EMAILJS_SERVICE_ID</span><span class="env-val">service_xxxxxx</span></div>
+      <div class="env-row"><span class="env-key">EMAILJS_TEMPLATE_ID</span><span class="env-val">template_xxxxxx (monthly report)</span></div>
+      <div class="env-row"><span class="env-key">EMAILJS_REMINDER_TEMPLATE_ID</span><span class="env-val">template_xxxxxx (renewal reminder)</span></div>
+      <div class="env-row"><span class="env-key">EMAILJS_PUBLIC_KEY</span><span class="env-val">your_public_key</span></div>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin-top:10px;">After adding keys, click <strong>Save Changes</strong> → Render will redeploy automatically.</p>
+  </div>
+
+  <div class="section-card" style="background:var(--green-pale);border-color:var(--green-light);">
+    <div class="section-header" style="color:var(--green-dark);">✅ What Emails You'll Get</div>
+    <div class="list-item">
+      <div>
+        <div class="item-title">Monthly Report</div>
+        <div class="item-sub">Auto-sent on 1st of every month with full summary</div>
+      </div>
+      <span class="badge badge-green">Auto</span>
+    </div>
+    <div class="list-item">
+      <div>
+        <div class="item-title">Subscription Renewal</div>
+        <div class="item-sub">2 days before any subscription renews</div>
+      </div>
+      <span class="badge badge-green">Auto</span>
+    </div>
+    <div class="list-item">
+      <div>
+        <div class="item-title">Manual Report</div>
+        <div class="item-sub">Tap "Email Report" on the Reports page anytime</div>
+      </div>
+      <span class="badge badge-green">Manual</span>
+    </div>
+  </div>
+
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}

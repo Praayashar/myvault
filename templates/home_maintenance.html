@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% block title %}Home Maintenance — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>🔧 Home Maintenance</h2></div>
+
+  <div class="tab-bar">
+    <button class="tab active" data-htab="tasks">Tasks</button>
+    <button class="tab" data-htab="logs">Expense Log</button>
+  </div>
+
+  <!-- Tasks Tab -->
+  <div class="htab-content active" id="htab-tasks">
+    <div style="margin-top:8px;">
+      <button class="btn-primary btn-full" id="showAddTask">+ Add Maintenance Task</button>
+    </div>
+    <div class="form-card hidden" id="addTaskForm">
+      <div class="form-group"><label>Task Name</label><input type="text" id="t-title" placeholder="e.g. AC Servicing, Water Purifier Filter"></div>
+      <div class="form-group"><label>Repeat Every (Days)</label><input type="number" id="t-freq" placeholder="e.g. 180 for 6 months"></div>
+      <div class="form-group"><label>Next Due Date</label><input type="date" id="t-due"></div>
+      <div class="form-group"><label>Contact Name</label><input type="text" id="t-contact" placeholder="Plumber, Electrician name"></div>
+      <div class="form-group"><label>Contact Phone</label><input type="text" id="t-phone" placeholder="Optional"></div>
+      <div class="form-group"><label>Notes</label><input type="text" id="t-notes" placeholder="Optional"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn-outline" id="cancelTask">Cancel</button>
+        <button class="btn-primary" id="submitTask">Add Task</button>
+      </div>
+    </div>
+
+    {% if tasks %}
+      {% for t in tasks %}
+      {% set days = (t.next_due - today).days if t.next_due else None %}
+      <div class="inv-card" id="task-{{ t.id }}" style="margin-top:10px;">
+        <div class="inv-header">
+          <div>
+            <div class="item-title">{{ t.title }}</div>
+            {% if t.contact_name %}<div class="item-sub">👤 {{ t.contact_name }}{% if t.contact_phone %} · {{ t.contact_phone }}{% endif %}</div>{% endif %}
+          </div>
+          <button class="del-btn" onclick="deleteTask({{ t.id }})">✕</button>
+        </div>
+        {% if t.next_due %}
+        <div class="inv-details">
+          <span class="detail-pill {{ 'pill-red' if days is not none and days <= 7 else 'pill-amber' if days is not none and days <= 30 else '' }}">
+            📅 Due: {{ t.next_due.strftime('%d %b %Y') }}
+            {% if days is not none %}
+              {% if days < 0 %} (Overdue!){% elif days == 0 %} (Today!){% else %} ({{ days }}d){% endif %}
+            {% endif %}
+          </span>
+          {% if t.frequency_days %}<span class="detail-pill">🔄 Every {{ t.frequency_days }} days</span>{% endif %}
+          {% if t.last_done %}<span class="detail-pill">✅ Done: {{ t.last_done.strftime('%d %b %Y') }}</span>{% endif %}
+        </div>
+        {% endif %}
+        {% if t.notes %}<div class="item-sub" style="margin-top:4px;">📝 {{ t.notes }}</div>{% endif %}
+        <div class="inv-actions">
+          <button class="btn-sm btn-outline" onclick="markDone({{ t.id }})">✓ Mark Done</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:24px;"><div class="empty-icon">🔧</div><p>No maintenance tasks added yet</p></div>
+    {% endif %}
+  </div>
+
+  <!-- Logs Tab -->
+  <div class="htab-content" id="htab-logs">
+    <div style="margin-top:8px;">
+      <button class="btn-primary btn-full" id="showAddLog">+ Log Home Expense</button>
+    </div>
+    <div class="form-card hidden" id="addLogForm">
+      <div class="form-group"><label>Description</label><input type="text" id="l-title" placeholder="e.g. Plumber visit, Paint job"></div>
+      <div class="form-group"><label>Amount (₹)</label><input type="number" id="l-amount" placeholder="0.00"></div>
+      <div class="form-group"><label>Date</label><input type="date" id="l-date"></div>
+      <div class="form-group"><label>Notes</label><input type="text" id="l-notes" placeholder="Optional"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn-outline" id="cancelLog">Cancel</button>
+        <button class="btn-primary" id="submitLog">Add Log</button>
+      </div>
+    </div>
+
+    <div class="section-card" style="margin-top:10px;">
+      {% if logs %}
+        {% for log in logs %}
+        <div class="list-item" id="hlog-{{ log.id }}">
+          <div>
+            <div class="item-title">{{ log.title }}</div>
+            <div class="item-sub">{{ log.date.strftime('%d %b %Y') }}{% if log.notes %} · {{ log.notes }}{% endif %}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            {% if log.amount %}<div class="item-amount text-red">₹{{ "{:,.0f}".format(log.amount) }}</div>{% endif %}
+            <button class="del-btn" onclick="deleteLog({{ log.id }})">✕</button>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state" style="padding:20px;"><p>No home expenses logged yet</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('t-due').value = today;
+document.getElementById('l-date').value = today;
+
+document.querySelectorAll('[data-htab]').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('[data-htab]').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.htab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('htab-' + tab.dataset.htab).classList.add('active');
+  });
+});
+
+function toggleForm(s, f, c) {
+  document.getElementById(s).addEventListener('click', () => { document.getElementById(s).classList.add('hidden'); document.getElementById(f).classList.remove('hidden'); });
+  document.getElementById(c).addEventListener('click', () => { document.getElementById(s).classList.remove('hidden'); document.getElementById(f).classList.add('hidden'); });
+}
+toggleForm('showAddTask','addTaskForm','cancelTask');
+toggleForm('showAddLog','addLogForm','cancelLog');
+
+document.getElementById('submitTask').addEventListener('click', async () => {
+  const title = document.getElementById('t-title').value;
+  if (!title) return alert('Task name required');
+  const res = await fetch('/home-maintenance/task/add', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ title, frequency_days: document.getElementById('t-freq').value, next_due: document.getElementById('t-due').value, contact_name: document.getElementById('t-contact').value, contact_phone: document.getElementById('t-phone').value, notes: document.getElementById('t-notes').value }) });
+  if ((await res.json()).success) location.reload();
+});
+async function markDone(id) {
+  if ((await (await fetch('/home-maintenance/task/done/' + id, {method:'POST'})).json()).success) location.reload();
+}
+async function deleteTask(id) {
+  if (!confirm('Delete this task?')) return;
+  if ((await (await fetch('/home-maintenance/task/delete/' + id, {method:'POST'})).json()).success) document.getElementById('task-' + id).remove();
+}
+document.getElementById('submitLog').addEventListener('click', async () => {
+  const title = document.getElementById('l-title').value;
+  if (!title) return alert('Description required');
+  const res = await fetch('/home-maintenance/log/add', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ title, amount: document.getElementById('l-amount').value || 0, date: document.getElementById('l-date').value, notes: document.getElementById('l-notes').value }) });
+  if ((await res.json()).success) location.reload();
+});
+async function deleteLog(id) {
+  if ((await (await fetch('/home-maintenance/log/delete/' + id, {method:'POST'})).json()).success) document.getElementById('hlog-' + id).remove();
+}
+</script>
+{% endblock %}

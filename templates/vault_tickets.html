@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %}Ticket Vault — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>🎫 Ticket & Booking Vault</h2></div>
+
+  <button class="btn-primary btn-full" id="showAddTkt">+ Add Booking</button>
+  <div class="form-card hidden" id="addTktForm">
+    <div class="form-group"><label>Type</label>
+      <select id="tk-type">
+        <option>Train</option><option>Flight</option><option>Bus</option>
+        <option>Hotel</option><option>Movie</option><option>Event</option><option>Other</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Title / Description</label><input type="text" id="tk-title" placeholder="e.g. Mumbai to Goa Train"></div>
+    <div class="form-group"><label>Booking Reference / PNR</label><input type="text" id="tk-ref" placeholder="e.g. PNR number, Booking ID"></div>
+    <div class="form-group"><label>From</label><input type="text" id="tk-from" placeholder="e.g. Mumbai"></div>
+    <div class="form-group"><label>To</label><input type="text" id="tk-to" placeholder="e.g. Goa"></div>
+    <div class="form-group"><label>Travel / Event Date</label><input type="date" id="tk-date"></div>
+    <div class="form-group"><label>Amount Paid (₹)</label><input type="number" id="tk-amount" placeholder="0.00"></div>
+    <div class="form-group"><label>Notes</label><input type="text" id="tk-notes" placeholder="e.g. Seat number, hotel confirmation"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button class="btn-outline" id="cancelTkt">Cancel</button>
+      <button class="btn-primary" id="submitTkt">Save</button>
+    </div>
+  </div>
+
+  <!-- Upcoming -->
+  {% set upcoming = items | selectattr('travel_date') | selectattr('travel_date', 'ge', today) | list %}
+  {% set past = items | selectattr('travel_date') | selectattr('travel_date', 'lt', today) | list %}
+  {% set no_date = items | rejectattr('travel_date') | list %}
+
+  {% if upcoming %}
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">🗓️ Upcoming</div>
+    {% for item in upcoming | sort(attribute='travel_date') %}
+    {% set days = (item.travel_date - today).days %}
+    <div class="list-item" id="tkt-{{ item.id }}">
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span>{% if item.ticket_type == 'Train' %}🚂{% elif item.ticket_type == 'Flight' %}✈️{% elif item.ticket_type == 'Bus' %}🚌{% elif item.ticket_type == 'Hotel' %}🏨{% elif item.ticket_type == 'Movie' %}🎬{% else %}🎫{% endif %}</span>
+          <div class="item-title">{{ item.title }}</div>
+        </div>
+        {% if item.from_location or item.to_location %}<div class="item-sub">{{ item.from_location }} → {{ item.to_location }}</div>{% endif %}
+        {% if item.booking_ref %}<div class="item-sub">Ref: {{ item.booking_ref }} <button class="icon-btn" style="width:20px;height:20px;font-size:10px;" onclick="copyText('{{ item.booking_ref }}', this)">📋</button></div>{% endif %}
+        <div class="item-sub">
+          {{ item.travel_date.strftime('%d %b %Y') }} ·
+          {% if days == 0 %}<span class="text-red">Today!</span>
+          {% elif days == 1 %}<span class="text-red">Tomorrow</span>
+          {% elif days <= 7 %}<span style="color:var(--amber);">{{ days }}d away</span>
+          {% else %}{{ days }}d away{% endif %}
+        </div>
+        {% if item.notes %}<div class="item-sub">📝 {{ item.notes }}</div>{% endif %}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+        {% if item.amount %}<div class="item-amount">₹{{ "{:,.0f}".format(item.amount) }}</div>{% endif %}
+        <button class="del-btn" onclick="deleteTkt({{ item.id }})">✕</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if past or no_date %}
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">📁 Past Bookings</div>
+    {% for item in (past | sort(attribute='travel_date', reverse=True)) + no_date %}
+    <div class="list-item" id="tkt-{{ item.id }}">
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span>{% if item.ticket_type == 'Train' %}🚂{% elif item.ticket_type == 'Flight' %}✈️{% elif item.ticket_type == 'Bus' %}🚌{% elif item.ticket_type == 'Hotel' %}🏨{% else %}🎫{% endif %}</span>
+          <div class="item-title">{{ item.title }}</div>
+        </div>
+        {% if item.from_location or item.to_location %}<div class="item-sub">{{ item.from_location }} → {{ item.to_location }}</div>{% endif %}
+        {% if item.travel_date %}<div class="item-sub">{{ item.travel_date.strftime('%d %b %Y') }}</div>{% endif %}
+        {% if item.booking_ref %}<div class="item-sub">Ref: {{ item.booking_ref }}</div>{% endif %}
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        {% if item.amount %}<div class="item-amount text-muted">₹{{ "{:,.0f}".format(item.amount) }}</div>{% endif %}
+        <button class="del-btn" onclick="deleteTkt({{ item.id }})">✕</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if not items %}
+  <div class="empty-state" style="padding:40px 20px;margin-top:12px;">
+    <div class="empty-icon">🎫</div>
+    <h3>No Bookings Saved</h3>
+    <p>Store train, flight, hotel and event bookings here</p>
+  </div>
+  {% endif %}
+
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('tk-date').value = new Date().toISOString().split('T')[0];
+document.getElementById('showAddTkt').addEventListener('click', () => { document.getElementById('showAddTkt').classList.add('hidden'); document.getElementById('addTktForm').classList.remove('hidden'); });
+document.getElementById('cancelTkt').addEventListener('click', () => { document.getElementById('showAddTkt').classList.remove('hidden'); document.getElementById('addTktForm').classList.add('hidden'); });
+document.getElementById('submitTkt').addEventListener('click', async () => {
+  const title = document.getElementById('tk-title').value;
+  if (!title) return alert('Title required');
+  const res = await fetch('/vault/tickets/add', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ title, ticket_type: document.getElementById('tk-type').value, booking_ref: document.getElementById('tk-ref').value, from_location: document.getElementById('tk-from').value, to_location: document.getElementById('tk-to').value, travel_date: document.getElementById('tk-date').value, amount: document.getElementById('tk-amount').value || 0, notes: document.getElementById('tk-notes').value }) });
+  if ((await res.json()).success) location.reload();
+});
+async function copyText(text, btn) {
+  await navigator.clipboard.writeText(text);
+  const orig = btn.textContent; btn.textContent = '✅';
+  setTimeout(() => btn.textContent = orig, 1500);
+}
+async function deleteTkt(id) {
+  if (!confirm('Delete this booking?')) return;
+  if ((await (await fetch('/vault/tickets/delete/' + id, {method:'POST'})).json()).success) document.getElementById('tkt-' + id).remove();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}Health Tracker — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>🏥 Health Tracker</h2></div>
+
+  <div class="section-card">
+    <div class="section-header">Total Medical Expenses</div>
+    <div style="font-size:24px;font-weight:700;color:var(--red);">₹{{ "{:,.0f}".format(total_medical_expense) }}</div>
+  </div>
+
+  <button class="btn-primary btn-full" id="showAddHealth">+ Add Health Record</button>
+  <div class="form-card hidden" id="addHealthForm">
+    <div class="form-group"><label>Type</label>
+      <select id="h-type">
+        <option>Doctor Visit</option><option>Medicine</option><option>Lab Test</option>
+        <option>Hospital</option><option>Health Insurance</option><option>Other</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Title</label><input type="text" id="h-title" placeholder="e.g. BP Checkup, Antibiotics"></div>
+    <div class="form-group"><label>Doctor / Hospital</label><input type="text" id="h-doctor" placeholder="Optional"></div>
+    <div class="form-group"><label>Amount (₹)</label><input type="number" id="h-amount" placeholder="0.00"></div>
+    <div class="form-group"><label>Date</label><input type="date" id="h-date"></div>
+    <div class="form-group"><label>Notes / Prescription</label><input type="text" id="h-notes" placeholder="Optional"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button class="btn-outline" id="cancelHealth">Cancel</button>
+      <button class="btn-primary" id="submitHealth">Add Record</button>
+    </div>
+  </div>
+
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">Health Records</div>
+    {% if records %}
+      {% for r in records %}
+      <div class="list-item" id="health-{{ r.id }}">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span>{% if r.record_type == 'Doctor Visit' %}👨‍⚕️{% elif r.record_type == 'Medicine' %}💊{% elif r.record_type == 'Lab Test' %}🧪{% elif r.record_type == 'Hospital' %}🏥{% else %}❤️{% endif %}</span>
+            <div class="item-title">{{ r.title }}</div>
+          </div>
+          <div class="item-sub">{{ r.record_type }}{% if r.doctor_name %} · {{ r.doctor_name }}{% endif %} · {{ r.date.strftime('%d %b %Y') }}</div>
+          {% if r.notes %}<div class="item-sub">📝 {{ r.notes }}</div>{% endif %}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+          {% if r.amount %}<div class="item-amount text-red">₹{{ "{:,.0f}".format(r.amount) }}</div>{% endif %}
+          <button class="del-btn" onclick="deleteHealth({{ r.id }})">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:20px;"><div class="empty-icon">🏥</div><p>No health records yet</p></div>
+    {% endif %}
+  </div>
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('h-date').value = new Date().toISOString().split('T')[0];
+document.getElementById('showAddHealth').addEventListener('click', () => { document.getElementById('showAddHealth').classList.add('hidden'); document.getElementById('addHealthForm').classList.remove('hidden'); });
+document.getElementById('cancelHealth').addEventListener('click', () => { document.getElementById('showAddHealth').classList.remove('hidden'); document.getElementById('addHealthForm').classList.add('hidden'); });
+document.getElementById('submitHealth').addEventListener('click', async () => {
+  const title = document.getElementById('h-title').value;
+  if (!title) return alert('Title required');
+  const res = await fetch('/health/add', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ record_type: document.getElementById('h-type').value, title, doctor_name: document.getElementById('h-doctor').value, amount: document.getElementById('h-amount').value || 0, date: document.getElementById('h-date').value, notes: document.getElementById('h-notes').value }) });
+  if ((await res.json()).success) location.reload();
+});
+async function deleteHealth(id) {
+  if ((await (await fetch('/health/delete/' + id, {method:'POST'})).json()).success) document.getElementById('health-' + id).remove();
+}
+</script>
+{% endblock %}

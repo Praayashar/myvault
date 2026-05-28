@@ -1,0 +1,292 @@
+{% extends 'base.html' %}
+{% block title %}Investments — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>📈 Investments</h2></div>
+
+  <!-- Summary Cards -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Invested</div>
+      <div class="stat-value green">₹{{ "{:,.0f}".format(total_invested) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">At Maturity</div>
+      <div class="stat-value green">₹{{ "{:,.0f}".format(total_maturity) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Returns</div>
+      <div class="stat-value {{ 'green' if expected_returns >= 0 else 'red' }}">₹{{ "{:,.0f}".format(expected_returns) }}</div>
+    </div>
+  </div>
+
+  <!-- Maturing Soon Alert -->
+  {% if maturing_soon %}
+  <div class="alert-card">
+    <div class="alert-title">⚠️ Maturing in 30 Days</div>
+    {% for inv in maturing_soon %}
+    <div class="alert-item">
+      <span>{{ inv.name }} ({{ inv.type }})</span>
+      <span class="text-red">{{ (inv.maturity_date - today).days }}d · ₹{{ "{:,.0f}".format(inv.maturity_amount or inv.principal) }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Add Button -->
+  <button class="btn-primary btn-full" id="showAddInv">+ Add Investment</button>
+
+  <!-- Add Form -->
+  <div class="form-card hidden" id="addInvForm">
+    <div class="form-group"><label>Type</label>
+      <select id="inv-type">
+        <option value="FD">Fixed Deposit (FD)</option>
+        <option value="RD">Recurring Deposit (RD)</option>
+        <option value="MF">Mutual Fund (MF)</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Name / Description</label><input type="text" id="inv-name" placeholder="e.g. SBI FD - 1 Year"></div>
+    <div class="form-group"><label>Bank / Provider</label><input type="text" id="inv-bank" placeholder="e.g. SBI, HDFC, Zerodha"></div>
+    <div class="form-group"><label>Principal Amount (₹)</label><input type="number" id="inv-principal" placeholder="0.00"></div>
+    <div class="form-group"><label>Interest Rate (%)</label><input type="number" id="inv-rate" placeholder="e.g. 7.5" step="0.1"></div>
+    <div class="form-group"><label>Start Date</label><input type="date" id="inv-start"></div>
+    <div class="form-group"><label>Maturity Date</label><input type="date" id="inv-maturity"></div>
+    <div class="form-group"><label>Maturity Amount (₹) <span class="text-muted">(auto-calculated if blank)</span></label><input type="number" id="inv-mat-amount" placeholder="Optional"></div>
+    <div class="form-group"><label>Notes</label><input type="text" id="inv-notes" placeholder="Optional"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button class="btn-outline" id="cancelInv">Cancel</button>
+      <button class="btn-primary" id="submitInv">Add</button>
+    </div>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar" style="margin-top:12px;">
+    <button class="tab active" data-itab="fd">FD ({{ fds|length }})</button>
+    <button class="tab" data-itab="rd">RD ({{ rds|length }})</button>
+    <button class="tab" data-itab="mf">MF ({{ mfs|length }})</button>
+    <button class="tab" data-itab="goals">Goals</button>
+  </div>
+
+  <!-- FD Tab -->
+  <div class="itab-content active" id="itab-fd">
+    {% if fds %}
+      {% for inv in fds %}
+      {% set days_left = (inv.maturity_date - today).days if inv.maturity_date else None %}
+      <div class="inv-card {{ 'inv-closed' if not inv.is_active else '' }}" id="inv-{{ inv.id }}">
+        <div class="inv-header">
+          <div>
+            <div class="item-title">{{ inv.name }}</div>
+            <div class="item-sub">{{ inv.bank_name or 'Bank' }} · {{ inv.interest_rate }}% p.a.</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="item-amount text-green">₹{{ "{:,.0f}".format(inv.principal) }}</div>
+            {% if not inv.is_active %}<span class="badge" style="background:#f3f4f6;color:#6b7280;">Closed</span>{% endif %}
+          </div>
+        </div>
+        <div class="inv-details">
+          {% if inv.start_date %}<span class="detail-pill">Start: {{ inv.start_date.strftime('%d %b %Y') }}</span>{% endif %}
+          {% if inv.maturity_date %}<span class="detail-pill {{ 'pill-red' if days_left and days_left <= 30 else '' }}">Matures: {{ inv.maturity_date.strftime('%d %b %Y') }}{% if days_left is not none %} ({{ days_left }}d){% endif %}</span>{% endif %}
+          {% if inv.maturity_amount %}<span class="detail-pill pill-green">Maturity: ₹{{ "{:,.0f}".format(inv.maturity_amount) }}</span>{% endif %}
+        </div>
+        {% if inv.notes %}<div class="item-sub" style="margin-top:4px;">📝 {{ inv.notes }}</div>{% endif %}
+        <div class="inv-actions">
+          {% if inv.is_active %}<button class="btn-sm btn-outline" onclick="closeInv({{ inv.id }})">Mark Closed</button>{% endif %}
+          <button class="del-btn" onclick="deleteInv({{ inv.id }})">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:24px;"><div class="empty-icon">🏦</div><p>No FDs added yet</p></div>
+    {% endif %}
+  </div>
+
+  <!-- RD Tab -->
+  <div class="itab-content" id="itab-rd">
+    {% if rds %}
+      {% for inv in rds %}
+      {% set days_left = (inv.maturity_date - today).days if inv.maturity_date else None %}
+      <div class="inv-card {{ 'inv-closed' if not inv.is_active else '' }}" id="inv-{{ inv.id }}">
+        <div class="inv-header">
+          <div>
+            <div class="item-title">{{ inv.name }}</div>
+            <div class="item-sub">{{ inv.bank_name or 'Bank' }} · {{ inv.interest_rate }}% p.a.</div>
+          </div>
+          <div class="item-amount text-green">₹{{ "{:,.0f}".format(inv.principal) }}/mo</div>
+        </div>
+        <div class="inv-details">
+          {% if inv.maturity_date %}<span class="detail-pill {{ 'pill-red' if days_left and days_left <= 30 else '' }}">Matures: {{ inv.maturity_date.strftime('%d %b %Y') }}</span>{% endif %}
+          {% if inv.maturity_amount %}<span class="detail-pill pill-green">Expected: ₹{{ "{:,.0f}".format(inv.maturity_amount) }}</span>{% endif %}
+        </div>
+        <div class="inv-actions">
+          {% if inv.is_active %}<button class="btn-sm btn-outline" onclick="closeInv({{ inv.id }})">Mark Closed</button>{% endif %}
+          <button class="del-btn" onclick="deleteInv({{ inv.id }})">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:24px;"><div class="empty-icon">💰</div><p>No RDs added yet</p></div>
+    {% endif %}
+  </div>
+
+  <!-- MF Tab -->
+  <div class="itab-content" id="itab-mf">
+    {% if mfs %}
+      {% for inv in mfs %}
+      <div class="inv-card {{ 'inv-closed' if not inv.is_active else '' }}" id="inv-{{ inv.id }}">
+        <div class="inv-header">
+          <div>
+            <div class="item-title">{{ inv.name }}</div>
+            <div class="item-sub">{{ inv.bank_name or 'Fund House' }}</div>
+          </div>
+          <div class="item-amount text-green">₹{{ "{:,.0f}".format(inv.principal) }}</div>
+        </div>
+        {% if inv.notes %}<div class="item-sub">📝 {{ inv.notes }}</div>{% endif %}
+        <div class="inv-actions">
+          {% if inv.is_active %}<button class="btn-sm btn-outline" onclick="closeInv({{ inv.id }})">Mark Exited</button>{% endif %}
+          <button class="del-btn" onclick="deleteInv({{ inv.id }})">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:24px;"><div class="empty-icon">📊</div><p>No mutual funds added yet</p></div>
+    {% endif %}
+  </div>
+
+  <!-- Goals Tab -->
+  <div class="itab-content" id="itab-goals">
+    <div style="margin-top:8px;">
+      <button class="btn-primary btn-full" id="showAddGoal">+ Add Savings Goal</button>
+    </div>
+    <div class="form-card hidden" id="addGoalForm">
+      <div class="form-group"><label>Goal Name</label><input type="text" id="goal-name" placeholder="e.g. New iPhone, Family Trip"></div>
+      <div class="form-group"><label>Target Amount (₹)</label><input type="number" id="goal-target" placeholder="0.00"></div>
+      <div class="form-group"><label>Saved So Far (₹)</label><input type="number" id="goal-current" placeholder="0.00" value="0"></div>
+      <div class="form-group"><label>Target Date</label><input type="date" id="goal-date"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn-outline" id="cancelGoal">Cancel</button>
+        <button class="btn-primary" id="submitGoal">Add Goal</button>
+      </div>
+    </div>
+
+    {% if goals %}
+      {% for g in goals %}
+      {% set pct = [((g.current_amount / g.target_amount) * 100), 100] | min | round %}
+      <div class="inv-card" id="goal-{{ g.id }}">
+        <div class="inv-header">
+          <div class="item-title">{{ g.name }}</div>
+          <span class="badge badge-green">{{ pct }}%</span>
+        </div>
+        <div class="progress-bar" style="margin:8px 0;">
+          <div class="progress-fill" style="width:{{ pct }}%;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:8px;">
+          <span>₹{{ "{:,.0f}".format(g.current_amount) }} saved</span>
+          <span>₹{{ "{:,.0f}".format(g.target_amount) }} goal</span>
+        </div>
+        {% if g.target_date %}
+        <div class="item-sub">🎯 Target: {{ g.target_date.strftime('%d %b %Y') }}</div>
+        {% endif %}
+        <div class="inv-actions">
+          <input type="number" placeholder="Update saved amount" id="goal-upd-{{ g.id }}" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+          <button class="btn-sm btn-outline" onclick="updateGoal({{ g.id }})">Update</button>
+          <button class="del-btn" onclick="deleteGoal({{ g.id }})">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:24px;"><div class="empty-icon">🎯</div><p>No savings goals yet</p></div>
+    {% endif %}
+  </div>
+
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('inv-start').value = today;
+
+// Investment type tabs
+document.querySelectorAll('[data-itab]').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('[data-itab]').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.itab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('itab-' + tab.dataset.itab).classList.add('active');
+  });
+});
+
+// Add form toggle
+document.getElementById('showAddInv').addEventListener('click', () => {
+  document.getElementById('showAddInv').classList.add('hidden');
+  document.getElementById('addInvForm').classList.remove('hidden');
+});
+document.getElementById('cancelInv').addEventListener('click', () => {
+  document.getElementById('showAddInv').classList.remove('hidden');
+  document.getElementById('addInvForm').classList.add('hidden');
+});
+document.getElementById('submitInv').addEventListener('click', async () => {
+  const name = document.getElementById('inv-name').value;
+  const principal = document.getElementById('inv-principal').value;
+  if (!name || !principal) return alert('Name and principal required');
+  const res = await fetch('/investments/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      type: document.getElementById('inv-type').value,
+      name, principal,
+      bank_name: document.getElementById('inv-bank').value,
+      interest_rate: document.getElementById('inv-rate').value || 0,
+      start_date: document.getElementById('inv-start').value,
+      maturity_date: document.getElementById('inv-maturity').value,
+      maturity_amount: document.getElementById('inv-mat-amount').value,
+      notes: document.getElementById('inv-notes').value
+    })
+  });
+  if ((await res.json()).success) location.reload();
+});
+
+async function closeInv(id) {
+  if (!confirm('Mark this investment as closed/matured?')) return;
+  if ((await (await fetch('/investments/close/' + id, {method:'POST'})).json()).success) location.reload();
+}
+async function deleteInv(id) {
+  if (!confirm('Delete this investment?')) return;
+  if ((await (await fetch('/investments/delete/' + id, {method:'POST'})).json()).success) document.getElementById('inv-' + id).remove();
+}
+
+// Goals
+document.getElementById('showAddGoal').addEventListener('click', () => {
+  document.getElementById('showAddGoal').classList.add('hidden');
+  document.getElementById('addGoalForm').classList.remove('hidden');
+});
+document.getElementById('cancelGoal').addEventListener('click', () => {
+  document.getElementById('showAddGoal').classList.remove('hidden');
+  document.getElementById('addGoalForm').classList.add('hidden');
+});
+document.getElementById('submitGoal').addEventListener('click', async () => {
+  const name = document.getElementById('goal-name').value;
+  const target = document.getElementById('goal-target').value;
+  if (!name || !target) return alert('Name and target amount required');
+  const res = await fetch('/goals/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name, target_amount: target, current_amount: document.getElementById('goal-current').value || 0, target_date: document.getElementById('goal-date').value })
+  });
+  if ((await res.json()).success) location.reload();
+});
+async function updateGoal(id) {
+  const val = document.getElementById('goal-upd-' + id).value;
+  if (!val) return alert('Enter updated amount');
+  const res = await fetch('/goals/update/' + id, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ current_amount: val })
+  });
+  if ((await res.json()).success) location.reload();
+}
+async function deleteGoal(id) {
+  if (!confirm('Delete this goal?')) return;
+  if ((await (await fetch('/goals/delete/' + id, {method:'POST'})).json()).success) document.getElementById('goal-' + id).remove();
+}
+</script>
+{% endblock %}

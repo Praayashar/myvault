@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}Document Vault — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>📄 Document Vault</h2></div>
+
+  {% if expiring_soon %}
+  <div class="alert-card">
+    <div class="alert-title">⚠️ Expiring in 90 Days</div>
+    {% for doc in expiring_soon %}
+    {% set days = (doc.expiry_date - today).days %}
+    <div class="alert-item">
+      <span>{{ doc.doc_name }}</span>
+      <span class="text-red">{{ days }}d · {{ doc.expiry_date.strftime('%d %b %Y') }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <button class="btn-primary btn-full" id="showAddDoc">+ Add Document</button>
+  <div class="form-card hidden" id="addDocForm">
+    <div class="form-group"><label>Document Type</label>
+      <select id="dc-type">
+        <option>Aadhar Card</option><option>PAN Card</option><option>Passport</option>
+        <option>Driving Licence</option><option>Voter ID</option><option>Birth Certificate</option>
+        <option>Property Document</option><option>Vehicle RC</option><option>Other</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Document Name / Label</label><input type="text" id="dc-name" placeholder="e.g. Rahul's Passport, Papa's Aadhar"></div>
+    <div class="form-group"><label>Document Number</label><input type="text" id="dc-number" placeholder="Optional"></div>
+    <div class="form-group"><label>Expiry Date</label><input type="date" id="dc-expiry"></div>
+    <div class="form-group"><label>Notes</label><input type="text" id="dc-notes" placeholder="Optional"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button class="btn-outline" id="cancelDoc">Cancel</button>
+      <button class="btn-primary" id="submitDoc">Save</button>
+    </div>
+  </div>
+
+  {% if items %}
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">All Documents</div>
+    {% for item in items %}
+    {% set days = (item.expiry_date - today).days if item.expiry_date else None %}
+    <div class="list-item" id="doc-{{ item.id }}">
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span>{% if 'Aadhar' in item.doc_type %}🪪{% elif 'PAN' in item.doc_type %}📋{% elif 'Passport' in item.doc_type %}📕{% elif 'Driving' in item.doc_type %}🚗{% elif 'Voter' in item.doc_type %}🗳️{% else %}📄{% endif %}</span>
+          <div class="item-title">{{ item.doc_name }}</div>
+        </div>
+        <div class="item-sub">{{ item.doc_type }}</div>
+        {% if item.doc_number %}
+        <div class="item-sub">No: ••••{{ item.doc_number[-4:] if item.doc_number|length >= 4 else item.doc_number }}</div>
+        {% endif %}
+        {% if item.expiry_date %}
+        <div class="item-sub">
+          Expires: {{ item.expiry_date.strftime('%d %b %Y') }}
+          {% if days is not none %}
+            {% if days < 0 %} · <span class="text-red">Expired!</span>
+            {% elif days <= 30 %} · <span class="text-red">{{ days }}d left</span>
+            {% elif days <= 90 %} · <span style="color:var(--amber);">{{ days }}d left</span>
+            {% endif %}
+          {% endif %}
+        </div>
+        {% endif %}
+        {% if item.notes %}<div class="item-sub">📝 {{ item.notes }}</div>{% endif %}
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        {% if item.doc_number %}
+        <button class="icon-btn" onclick="copyText('{{ item.doc_number }}', this)" title="Copy Number">📋</button>
+        {% endif %}
+        <button class="del-btn" onclick="deleteDoc({{ item.id }})">✕</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+    <div class="empty-state" style="padding:40px 20px;margin-top:12px;">
+      <div class="empty-icon">📄</div>
+      <h3>No Documents Added</h3>
+      <p>Store Aadhar, PAN, Passport and other important documents</p>
+    </div>
+  {% endif %}
+
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('showAddDoc').addEventListener('click', () => { document.getElementById('showAddDoc').classList.add('hidden'); document.getElementById('addDocForm').classList.remove('hidden'); });
+document.getElementById('cancelDoc').addEventListener('click', () => { document.getElementById('showAddDoc').classList.remove('hidden'); document.getElementById('addDocForm').classList.add('hidden'); });
+document.getElementById('submitDoc').addEventListener('click', async () => {
+  const name = document.getElementById('dc-name').value;
+  if (!name) return alert('Document name required');
+  const res = await fetch('/vault/documents/add', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ doc_type: document.getElementById('dc-type').value, doc_name: name, doc_number: document.getElementById('dc-number').value, expiry_date: document.getElementById('dc-expiry').value, notes: document.getElementById('dc-notes').value }) });
+  if ((await res.json()).success) location.reload();
+});
+async function copyText(text, btn) {
+  await navigator.clipboard.writeText(text);
+  const orig = btn.textContent; btn.textContent = '✅';
+  setTimeout(() => btn.textContent = orig, 1500);
+}
+async function deleteDoc(id) {
+  if (!confirm('Delete this document?')) return;
+  if ((await (await fetch('/vault/documents/delete/' + id, {method:'POST'})).json()).success) document.getElementById('doc-' + id).remove();
+}
+</script>
+{% endblock %}
