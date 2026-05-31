@@ -28,6 +28,47 @@
 {% block full_page %}
 {% if current_user.is_authenticated %}
 <div class="app-layout">
+
+  <!-- Sidebar (tablet/desktop only) -->
+  <nav class="sidebar" style="display:none;">
+    <div class="sidebar-logo">🔐 MyVault</div>
+    <div class="sidebar-user">
+      <strong>{{ current_user.name }}</strong>
+      {{ current_user.email }}
+    </div>
+    <div class="sidebar-nav">
+      <div class="sidebar-section">Main</div>
+      <a href="{{ url_for('main.dashboard') }}" class="sidebar-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}"><span>🏠</span> Dashboard</a>
+      <a href="{{ url_for('finance.index') }}" class="sidebar-link {% if request.blueprint == 'finance' %}active{% endif %}"><span>💰</span> Finance</a>
+      <a href="{{ url_for('investments.index') }}" class="sidebar-link {% if request.blueprint == 'investments' %}active{% endif %}"><span>📈</span> Investments</a>
+      <a href="{{ url_for('family.index') }}" class="sidebar-link {% if request.blueprint == 'family' %}active{% endif %}"><span>👨‍👩‍👦</span> Family</a>
+      <a href="{{ url_for('reports.index') }}" class="sidebar-link {% if request.blueprint == 'reports' %}active{% endif %}"><span>📊</span> Reports</a>
+      <a href="{{ url_for('ai.index') }}" class="sidebar-link {% if request.blueprint == 'ai' %}active{% endif %}"><span>🤖</span> AI Assistant</a>
+
+      <div class="sidebar-section">Bills</div>
+      <a href="{{ url_for('bills.subscriptions') }}" class="sidebar-link {% if request.endpoint == 'bills.subscriptions' %}active{% endif %}"><span>🔄</span> Subscriptions</a>
+      <a href="{{ url_for('bills.emi_list') }}" class="sidebar-link {% if request.endpoint == 'bills.emi_list' %}active{% endif %}"><span>📦</span> EMI Tracker</a>
+      <a href="{{ url_for('bills.insurance_list') }}" class="sidebar-link {% if request.endpoint == 'bills.insurance_list' %}active{% endif %}"><span>🛡️</span> Insurance</a>
+
+      <div class="sidebar-section">Life</div>
+      <a href="{{ url_for('life.vehicle') }}" class="sidebar-link {% if request.endpoint == 'life.vehicle' %}active{% endif %}"><span>🚗</span> Vehicle</a>
+      <a href="{{ url_for('life.health') }}" class="sidebar-link {% if request.endpoint == 'life.health' %}active{% endif %}"><span>🏥</span> Health</a>
+      <a href="{{ url_for('life.home_maintenance') }}" class="sidebar-link {% if request.endpoint == 'life.home_maintenance' %}active{% endif %}"><span>🔧</span> Home</a>
+      <a href="{{ url_for('life.gas') }}" class="sidebar-link {% if request.endpoint == 'life.gas' %}active{% endif %}"><span>🛢️</span> Gas Cylinder</a>
+      <a href="{{ url_for('life.trips') }}" class="sidebar-link {% if request.endpoint == 'life.trips' %}active{% endif %}"><span>✈️</span> Trips</a>
+
+      <div class="sidebar-section">Vault</div>
+      <a href="{{ url_for('vault.passwords') }}" class="sidebar-link {% if request.endpoint == 'vault.passwords' %}active{% endif %}"><span>🔑</span> Passwords</a>
+      <a href="{{ url_for('vault.accounts') }}" class="sidebar-link {% if request.endpoint == 'vault.accounts' %}active{% endif %}"><span>🏦</span> Accounts</a>
+      <a href="{{ url_for('vault.documents') }}" class="sidebar-link {% if request.endpoint == 'vault.documents' %}active{% endif %}"><span>📄</span> Documents</a>
+      <a href="{{ url_for('vault.tickets') }}" class="sidebar-link {% if request.endpoint == 'vault.tickets' %}active{% endif %}"><span>🎫</span> Tickets</a>
+    </div>
+    <div class="sidebar-logout">
+      <a href="{{ url_for('main.settings') }}">⚙️ Settings</a>&nbsp;&nbsp;
+      <a href="{{ url_for('auth.logout') }}">🚪 Logout</a>
+    </div>
+  </nav>
+
   <!-- Top Header -->
   <header class="app-header">
     <div class="header-left">
@@ -129,7 +170,11 @@
       </div>
       <div class="form-group">
         <label>Description</label>
-        <input type="text" id="qa-desc" placeholder="e.g. Zomato dinner">
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="qa-desc" placeholder="e.g. Zomato dinner" style="flex:1;">
+          <button type="button" class="voice-btn" id="voiceBtn" title="Voice input">🎤</button>
+        </div>
+        <div class="voice-transcript" id="voiceStatus"></div>
       </div>
       <div class="form-group">
         <label>Date</label>

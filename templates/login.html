@@ -30,8 +30,9 @@
       <button type="submit" class="btn-primary btn-full">Login</button>
     </form>
 
-    <div class="auth-footer">
-      <a href="{{ url_for('auth.register') }}">Create new profile</a>
+    <div class="auth-footer" style="display:flex;justify-content:space-between;">
+      <a href="{{ url_for('auth.forgot_password') }}">Forgot password?</a>
+      <a href="{{ url_for('auth.register') }}">Create profile</a>
     </div>
   </div>
 </div>

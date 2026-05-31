@@ -3,6 +3,10 @@ from flask_login import LoginManager
 from flask_migrate import Migrate
 from config import Config
 from models import db, User
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def create_app():
     app = Flask(__name__)
@@ -41,12 +45,18 @@ def create_app():
     app.register_blueprint(ai)
     app.register_blueprint(reports)
 
-    # Import extra models so Flask-Migrate tracks them
+    # Import extra models so they are tracked by migrations
     from routes.life import FuelLog, HomeTask, HomeLog, GasLog, Trip, TripExpense
     from routes.vault import TicketVault
 
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+            logger.info("Database tables created successfully")
+        except Exception as e:
+            logger.error(f"Database init error: {e}")
+            # Don't crash — let the app start, DB will reconnect
+            pass
 
     @app.context_processor
     def inject_config():
@@ -57,4 +67,4 @@ def create_app():
 app = create_app()
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')

@@ -136,12 +136,13 @@
   <!-- Export & Email -->
   <div class="section-card">
     <div class="section-header">📤 Export & Share</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
       <a href="{{ url_for('reports.export_csv', year=year, month=month) }}" class="btn-outline" style="text-align:center;display:block;">
         📥 Download CSV
       </a>
       <button class="btn-outline" onclick="sendEmailReport()">📧 Email Report</button>
     </div>
+    <button class="whatsapp-btn btn-full" onclick="sendWhatsApp()">📲 Share on WhatsApp</button>
     <div id="emailStatus" style="font-size:13px;text-align:center;margin-top:10px;display:none;"></div>
   </div>
 
@@ -225,6 +226,20 @@ async function sendEmailReport() {
 
   btn.disabled = false;
   btn.textContent = '📧 Email Report';
+}
+
+async function sendWhatsApp() {
+  const res = await fetch('/reports/summary/json?year={{ year }}&month={{ month }}');
+  const data = await res.json();
+  const cats = data.top_categories.map(c => `  • ${c.name}: ₹${Number(c.amount).toLocaleString('en-IN')}`).join('\n');
+  const text = `*MyVault Report — ${data.month_name}*\n\n` +
+    `💰 Income: ₹${Number(data.monthly_income).toLocaleString('en-IN')}\n` +
+    `💸 Expenses: ₹${Number(data.monthly_expense).toLocaleString('en-IN')}\n` +
+    `✅ ${data.balance >= 0 ? 'Saved' : 'Over'}: ₹${Math.abs(data.balance).toLocaleString('en-IN')}\n` +
+    `📊 Savings Rate: ${data.savings_rate}%\n\n` +
+    `*Top Categories:*\n${cats}\n\n` +
+    `_Sent from MyVault_`;
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
 }
 </script>
 {% endblock %}

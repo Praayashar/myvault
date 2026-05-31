@@ -151,3 +151,118 @@ async function checkAndSendReminders() {
 if (window.location.pathname === '/dashboard') {
   checkAndSendReminders();
 }
+
+// ===== SWIPE TO DELETE =====
+function initSwipeToDelete(selector, deleteCallback) {
+  const items = document.querySelectorAll(selector);
+  items.forEach(item => {
+    let startX = 0;
+    let currentX = 0;
+    let isDragging = false;
+
+    item.addEventListener('touchstart', (e) => {
+      startX = e.touches[0].clientX;
+      isDragging = true;
+    }, { passive: true });
+
+    item.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      currentX = e.touches[0].clientX - startX;
+      if (currentX < -30) item.classList.add('swiped');
+      else item.classList.remove('swiped');
+    }, { passive: true });
+
+    item.addEventListener('touchend', () => {
+      isDragging = false;
+      if (currentX < -80) {
+        // Confirm and delete
+        if (confirm('Delete this item?')) {
+          deleteCallback(item);
+        } else {
+          item.classList.remove('swiped');
+        }
+      } else {
+        item.classList.remove('swiped');
+      }
+      currentX = 0;
+    });
+  });
+}
+
+// ===== VOICE NOTE FOR EXPENSE =====
+let recognition = null;
+let isRecording = false;
+
+function initVoiceNote(btnId, targetFieldId, statusId) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    btn.title = 'Voice not supported on this browser';
+    btn.style.opacity = '0.5';
+    return;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.lang = 'en-IN';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    const field = document.getElementById(targetFieldId);
+    if (field) field.value = transcript;
+    const status = document.getElementById(statusId);
+    if (status) { status.textContent = '"' + transcript + '"'; status.style.display = 'block'; }
+    // Try to parse amount from voice
+    const amountMatch = transcript.match(/(\d+)/);
+    const amountField = document.getElementById('qa-amount') || document.getElementById('exp-amount');
+    if (amountMatch && amountField && !amountField.value) {
+      amountField.value = amountMatch[1];
+    }
+  };
+
+  recognition.onend = () => {
+    isRecording = false;
+    btn.classList.remove('recording');
+    btn.textContent = '🎤';
+  };
+
+  recognition.onerror = () => {
+    isRecording = false;
+    btn.classList.remove('recording');
+    btn.textContent = '🎤';
+  };
+
+  btn.addEventListener('click', () => {
+    if (isRecording) {
+      recognition.stop();
+    } else {
+      isRecording = true;
+      btn.classList.add('recording');
+      btn.textContent = '⏹️';
+      recognition.start();
+    }
+  });
+}
+
+// ===== WHATSAPP SHARE =====
+function shareOnWhatsApp(text) {
+  const encoded = encodeURIComponent(text);
+  window.open('https://wa.me/?text=' + encoded, '_blank');
+}
+
+function generateReportText(data) {
+  return `*MyVault Report — ${data.month}*\n\n` +
+    `💰 Income: ₹${data.income}\n` +
+    `💸 Expenses: ₹${data.expense}\n` +
+    `✅ Saved: ₹${data.balance}\n\n` +
+    `📊 Top Categories:\n${data.categories}\n\n` +
+    `_Sent from MyVault_`;
+}
+
+// Init voice on quick add modal
+document.addEventListener('DOMContentLoaded', () => {
+  initVoiceNote('voiceBtn', 'qa-desc', 'voiceStatus');
+});
