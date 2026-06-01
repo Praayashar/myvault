@@ -53,9 +53,17 @@ def create_app():
         try:
             db.create_all()
             logger.info("Database tables created successfully")
+            # Run safe migrations for new columns
+            with db.engine.connect() as conn:
+                conn.execute(db.text("""
+                    ALTER TABLE users
+                    ADD COLUMN IF NOT EXISTS reset_token VARCHAR(100),
+                    ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMP;
+                """))
+                conn.commit()
+            logger.info("Database migration complete")
         except Exception as e:
             logger.error(f"Database init error: {e}")
-            # Don't crash — let the app start, DB will reconnect
             pass
 
     @app.context_processor
