@@ -1,0 +1,576 @@
+{% extends 'base.html' %}
+{% block title %}Quick Entry — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>⚡ Quick Entry</h2><p class="text-muted">Add anything from one page</p></div>
+
+  <!-- Category Pills -->
+  <div class="qe-pills">
+    <button class="qe-pill active" data-section="expense">💸 Expense</button>
+    <button class="qe-pill" data-section="income">💰 Income</button>
+    <button class="qe-pill" data-section="subscription">🔄 Subscription</button>
+    <button class="qe-pill" data-section="emi">📦 EMI</button>
+    <button class="qe-pill" data-section="investment">📈 Investment</button>
+    <button class="qe-pill" data-section="vehicle">🚗 Vehicle</button>
+    <button class="qe-pill" data-section="health">🏥 Health</button>
+    <button class="qe-pill" data-section="home">🔧 Home</button>
+    <button class="qe-pill" data-section="gas">🛢️ Gas</button>
+    <button class="qe-pill" data-section="trip">✈️ Trip</button>
+    <button class="qe-pill" data-section="goal">🎯 Goal</button>
+    <button class="qe-pill" data-section="password">🔑 Password</button>
+  </div>
+
+  <!-- SUCCESS MESSAGE -->
+  <div id="successMsg" class="success-banner hidden">✅ Added successfully!</div>
+
+  <!-- ===== EXPENSE ===== -->
+  <div class="qe-section active" id="section-expense">
+    <div class="section-card">
+      <div class="section-header">💸 Add Expense</div>
+      <div class="form-group"><label>Amount (₹) *</label><input type="number" id="e-amount" placeholder="0.00" step="0.01"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Category</label>
+          <select id="e-cat">{% for c in categories %}<option>{{ c }}</option>{% endfor %}</select>
+        </div>
+        <div class="form-group"><label>Payment</label>
+          <select id="e-pay">{% for p in payment_methods %}<option>{{ p }}</option>{% endfor %}</select>
+        </div>
+      </div>
+      <div class="form-group"><label>Description</label><input type="text" id="e-desc" placeholder="e.g. Zomato dinner"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Date</label><input type="date" id="e-date"></div>
+        <div class="form-group"><label>Notes</label><input type="text" id="e-notes" placeholder="Optional"></div>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="e-recurring" style="width:auto;">
+        <label for="e-recurring" style="margin:0;font-weight:400;">Recurring monthly</label>
+      </div>
+      <button class="btn-primary btn-full" onclick="submitExpense()">Add Expense</button>
+    </div>
+  </div>
+
+  <!-- ===== INCOME ===== -->
+  <div class="qe-section" id="section-income">
+    <div class="section-card">
+      <div class="section-header">💰 Add Income</div>
+      <div class="form-group"><label>Amount (₹) *</label><input type="number" id="i-amount" placeholder="0.00" step="0.01"></div>
+      <div class="form-group"><label>Source *</label><input type="text" id="i-source" placeholder="e.g. Salary, Freelance, Rental"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Date</label><input type="date" id="i-date"></div>
+        <div class="form-group"><label>Description</label><input type="text" id="i-desc" placeholder="Optional"></div>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="i-recurring" style="width:auto;">
+        <label for="i-recurring" style="margin:0;font-weight:400;">Recurring monthly</label>
+      </div>
+      <button class="btn-primary btn-full" onclick="submitIncome()">Add Income</button>
+    </div>
+  </div>
+
+  <!-- ===== SUBSCRIPTION ===== -->
+  <div class="qe-section" id="section-subscription">
+    <div class="section-card">
+      <div class="section-header">🔄 Add Subscription</div>
+      <div class="form-group"><label>Name *</label><input type="text" id="s-name" placeholder="e.g. Netflix, Spotify"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Amount (₹) *</label><input type="number" id="s-amount" placeholder="0.00"></div>
+        <div class="form-group"><label>Cycle</label>
+          <select id="s-cycle"><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Renewal Date *</label><input type="date" id="s-date"></div>
+        <div class="form-group"><label>Category</label>
+          <select id="s-cat"><option>Entertainment</option><option>Music</option><option>Cloud Storage</option><option>News</option><option>Software</option><option>Gaming</option><option>Other</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label>Notes</label><input type="text" id="s-notes" placeholder="Optional"></div>
+      <button class="btn-primary btn-full" onclick="submitSubscription()">Add Subscription</button>
+    </div>
+  </div>
+
+  <!-- ===== EMI ===== -->
+  <div class="qe-section" id="section-emi">
+    <div class="section-card">
+      <div class="section-header">📦 Add EMI</div>
+      <div class="form-group"><label>Name *</label><input type="text" id="em-name" placeholder="e.g. iPhone EMI, Bike Loan"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Total Amount (₹)</label><input type="number" id="em-total" placeholder="0.00"></div>
+        <div class="form-group"><label>EMI/Month (₹) *</label><input type="number" id="em-amount" placeholder="0.00"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Total Installments *</label><input type="number" id="em-total-inst" placeholder="e.g. 12"></div>
+        <div class="form-group"><label>Paid So Far</label><input type="number" id="em-paid" placeholder="0" value="0"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Due Date (Day)</label><input type="number" id="em-due" placeholder="e.g. 5" min="1" max="31"></div>
+        <div class="form-group"><label>Start Date</label><input type="date" id="em-start"></div>
+      </div>
+      <div class="form-group"><label>Notes</label><input type="text" id="em-notes" placeholder="Optional"></div>
+      <button class="btn-primary btn-full" onclick="submitEMI()">Add EMI</button>
+    </div>
+  </div>
+
+  <!-- ===== INVESTMENT ===== -->
+  <div class="qe-section" id="section-investment">
+    <div class="section-card">
+      <div class="section-header">📈 Add Investment</div>
+      <div class="form-row">
+        <div class="form-group"><label>Type</label>
+          <select id="inv-type"><option value="FD">Fixed Deposit (FD)</option><option value="RD">Recurring Deposit (RD)</option><option value="MF">Mutual Fund (MF)</option></select>
+        </div>
+        <div class="form-group"><label>Bank/Provider</label><input type="text" id="inv-bank" placeholder="e.g. SBI, HDFC"></div>
+      </div>
+      <div class="form-group"><label>Name *</label><input type="text" id="inv-name" placeholder="e.g. SBI FD - 1 Year"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Principal (₹) *</label><input type="number" id="inv-principal" placeholder="0.00"></div>
+        <div class="form-group"><label>Interest Rate (%)</label><input type="number" id="inv-rate" placeholder="e.g. 7.5" step="0.1"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Start Date</label><input type="date" id="inv-start"></div>
+        <div class="form-group"><label>Maturity Date</label><input type="date" id="inv-maturity"></div>
+      </div>
+      <div class="form-group"><label>Notes</label><input type="text" id="inv-notes" placeholder="Optional"></div>
+      <button class="btn-primary btn-full" onclick="submitInvestment()">Add Investment</button>
+    </div>
+  </div>
+
+  <!-- ===== VEHICLE ===== -->
+  <div class="qe-section" id="section-vehicle">
+    <div class="section-card">
+      <div class="section-header">🚗 Add Vehicle / Fuel Log</div>
+      <div class="tab-bar" style="margin-bottom:12px;">
+        <button class="tab active" data-vtab="add-vehicle">Add Vehicle</button>
+        <button class="tab" data-vtab="add-fuel">Log Fuel</button>
+      </div>
+      <div class="vtab-content active" id="vtab-add-vehicle">
+        <div class="form-group"><label>Vehicle Name *</label><input type="text" id="v-name" placeholder="e.g. Honda Activa, Maruti Swift"></div>
+        <div class="form-row">
+          <div class="form-group"><label>Registration No.</label><input type="text" id="v-reg" placeholder="MH01AB1234"></div>
+          <div class="form-group"><label>Current KM</label><input type="number" id="v-km" placeholder="e.g. 25000"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Insurance Expiry</label><input type="date" id="v-insurance"></div>
+          <div class="form-group"><label>PUC Expiry</label><input type="date" id="v-puc"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Last Service</label><input type="date" id="v-service"></div>
+          <div class="form-group"><label>Next Service KM</label><input type="number" id="v-next-km" placeholder="e.g. 28000"></div>
+        </div>
+        <button class="btn-primary btn-full" onclick="submitVehicle()">Add Vehicle</button>
+      </div>
+      <div class="vtab-content" id="vtab-add-fuel">
+        <div class="form-group"><label>Amount Paid (₹) *</label><input type="number" id="f-amount" placeholder="0.00"></div>
+        <div class="form-row">
+          <div class="form-group"><label>Litres</label><input type="number" id="f-litres" placeholder="Optional" step="0.1"></div>
+          <div class="form-group"><label>KM Reading</label><input type="number" id="f-km" placeholder="Optional"></div>
+        </div>
+        <div class="form-group"><label>Date</label><input type="date" id="f-date"></div>
+        <button class="btn-primary btn-full" onclick="submitFuel()">Log Fuel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== HEALTH ===== -->
+  <div class="qe-section" id="section-health">
+    <div class="section-card">
+      <div class="section-header">🏥 Add Health Record</div>
+      <div class="form-row">
+        <div class="form-group"><label>Type</label>
+          <select id="h-type"><option>Doctor Visit</option><option>Medicine</option><option>Lab Test</option><option>Hospital</option><option>Other</option></select>
+        </div>
+        <div class="form-group"><label>Amount (₹)</label><input type="number" id="h-amount" placeholder="0.00"></div>
+      </div>
+      <div class="form-group"><label>Title *</label><input type="text" id="h-title" placeholder="e.g. BP Checkup, Antibiotics"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Doctor/Hospital</label><input type="text" id="h-doctor" placeholder="Optional"></div>
+        <div class="form-group"><label>Date</label><input type="date" id="h-date"></div>
+      </div>
+      <div class="form-group"><label>Notes/Prescription</label><input type="text" id="h-notes" placeholder="Optional"></div>
+      <button class="btn-primary btn-full" onclick="submitHealth()">Add Record</button>
+    </div>
+  </div>
+
+  <!-- ===== HOME MAINTENANCE ===== -->
+  <div class="qe-section" id="section-home">
+    <div class="section-card">
+      <div class="section-header">🔧 Add Home Task / Expense</div>
+      <div class="tab-bar" style="margin-bottom:12px;">
+        <button class="tab active" data-htab="add-task">Add Task</button>
+        <button class="tab" data-htab="add-home-log">Log Expense</button>
+      </div>
+      <div class="htab-content active" id="htab-add-task">
+        <div class="form-group"><label>Task Name *</label><input type="text" id="ht-title" placeholder="e.g. AC Servicing, Filter Change"></div>
+        <div class="form-row">
+          <div class="form-group"><label>Repeat Every (Days)</label><input type="number" id="ht-freq" placeholder="e.g. 180"></div>
+          <div class="form-group"><label>Next Due</label><input type="date" id="ht-due"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Contact Name</label><input type="text" id="ht-contact" placeholder="Plumber name"></div>
+          <div class="form-group"><label>Contact Phone</label><input type="text" id="ht-phone" placeholder="Optional"></div>
+        </div>
+        <button class="btn-primary btn-full" onclick="submitHomeTask()">Add Task</button>
+      </div>
+      <div class="htab-content" id="htab-add-home-log">
+        <div class="form-group"><label>Description *</label><input type="text" id="hl-title" placeholder="e.g. Plumber visit, Paint job"></div>
+        <div class="form-row">
+          <div class="form-group"><label>Amount (₹)</label><input type="number" id="hl-amount" placeholder="0.00"></div>
+          <div class="form-group"><label>Date</label><input type="date" id="hl-date"></div>
+        </div>
+        <div class="form-group"><label>Notes</label><input type="text" id="hl-notes" placeholder="Optional"></div>
+        <button class="btn-primary btn-full" onclick="submitHomeLog()">Log Expense</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== GAS ===== -->
+  <div class="qe-section" id="section-gas">
+    <div class="section-card">
+      <div class="section-header">🛢️ Log Gas Cylinder</div>
+      <div class="form-group"><label>Amount Paid (₹)</label><input type="number" id="g-amount" placeholder="0.00"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Date</label><input type="date" id="g-date"></div>
+        <div class="form-group"><label>Notes</label><input type="text" id="g-notes" placeholder="e.g. Indane, HP Gas"></div>
+      </div>
+      <button class="btn-primary btn-full" onclick="submitGas()">Log Cylinder</button>
+    </div>
+  </div>
+
+  <!-- ===== TRIP ===== -->
+  <div class="qe-section" id="section-trip">
+    <div class="section-card">
+      <div class="section-header">✈️ Plan New Trip</div>
+      <div class="form-group"><label>Trip Name *</label><input type="text" id="tr-name" placeholder="e.g. Goa Trip, Shirdi Darshan"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Destination</label><input type="text" id="tr-dest" placeholder="e.g. Goa"></div>
+        <div class="form-group"><label>Budget (₹)</label><input type="number" id="tr-budget" placeholder="0.00"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Start Date</label><input type="date" id="tr-start"></div>
+        <div class="form-group"><label>End Date</label><input type="date" id="tr-end"></div>
+      </div>
+      <div class="form-group"><label>Notes</label><input type="text" id="tr-notes" placeholder="Optional"></div>
+      <button class="btn-primary btn-full" onclick="submitTrip()">Create Trip</button>
+    </div>
+  </div>
+
+  <!-- ===== SAVINGS GOAL ===== -->
+  <div class="qe-section" id="section-goal">
+    <div class="section-card">
+      <div class="section-header">🎯 Add Savings Goal</div>
+      <div class="form-group"><label>Goal Name *</label><input type="text" id="go-name" placeholder="e.g. New iPhone, Family Trip"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Target Amount (₹) *</label><input type="number" id="go-target" placeholder="0.00"></div>
+        <div class="form-group"><label>Saved So Far (₹)</label><input type="number" id="go-current" placeholder="0" value="0"></div>
+      </div>
+      <div class="form-group"><label>Target Date</label><input type="date" id="go-date"></div>
+      <button class="btn-primary btn-full" onclick="submitGoal()">Add Goal</button>
+    </div>
+  </div>
+
+  <!-- ===== PASSWORD ===== -->
+  <div class="qe-section" id="section-password">
+    <div class="section-card">
+      <div class="section-header">🔑 Save Password</div>
+      <div class="form-group"><label>App / Website *</label><input type="text" id="pw-app" placeholder="e.g. Netflix, Gmail, HDFC"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Category</label>
+          <select id="pw-cat"><option>Banking</option><option>Social Media</option><option>Shopping</option><option>Entertainment</option><option>Work</option><option>Email</option><option>Other</option></select>
+        </div>
+        <div class="form-group"><label>Username</label><input type="text" id="pw-user" placeholder="Optional"></div>
+      </div>
+      <div class="form-group"><label>Email</label><input type="email" id="pw-email" placeholder="Optional"></div>
+      <div class="form-group"><label>Password *</label>
+        <div style="display:flex;gap:8px;">
+          <input type="password" id="pw-pass" placeholder="Enter password" style="flex:1;">
+          <button type="button" class="icon-btn" onclick="document.getElementById('pw-pass').type = document.getElementById('pw-pass').type === 'password' ? 'text' : 'password'">👁️</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Website URL</label><input type="url" id="pw-url" placeholder="https://..."></div>
+        <div class="form-group"><label>Notes</label><input type="text" id="pw-notes" placeholder="Optional"></div>
+      </div>
+      <button class="btn-primary btn-full" onclick="submitPassword()">Save Password</button>
+    </div>
+  </div>
+
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const today = new Date().toISOString().split('T')[0];
+// Set all date fields to today
+['e-date','i-date','s-date','em-start','inv-start','f-date','h-date','hl-date','g-date','tr-start','ht-due'].forEach(id => {
+  const el = document.getElementById(id);
+  if(el) el.value = today;
+});
+
+// ===== PILL NAVIGATION =====
+document.querySelectorAll('.qe-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('.qe-pill').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.qe-section').forEach(s => s.classList.remove('active'));
+    pill.classList.add('active');
+    document.getElementById('section-' + pill.dataset.section).classList.add('active');
+    // Scroll to top of section
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  });
+});
+
+// Vehicle sub-tabs
+document.querySelectorAll('[data-vtab]').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('[data-vtab]').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.vtab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('vtab-' + tab.dataset.vtab).classList.add('active');
+  });
+});
+
+// Home sub-tabs
+document.querySelectorAll('[data-htab]').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('[data-htab]').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.htab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('htab-' + tab.dataset.htab).classList.add('active');
+  });
+});
+
+// ===== SUCCESS MESSAGE =====
+function showSuccess(msg) {
+  const el = document.getElementById('successMsg');
+  el.textContent = '✅ ' + (msg || 'Added successfully!');
+  el.classList.remove('hidden');
+  window.scrollTo({top: 0, behavior: 'smooth'});
+  setTimeout(() => el.classList.add('hidden'), 3000);
+}
+
+function showError(msg) {
+  alert('❌ ' + msg);
+}
+
+function clearFields(ids) {
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.type === 'checkbox') el.checked = false;
+    else if (el.tagName === 'SELECT') el.selectedIndex = 0;
+    else if (el.type === 'date') el.value = today;
+    else el.value = '';
+  });
+}
+
+// ===== SUBMIT FUNCTIONS =====
+async function post(url, data) {
+  const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+  return await res.json();
+}
+
+async function submitExpense() {
+  const amount = document.getElementById('e-amount').value;
+  if (!amount || parseFloat(amount) <= 0) return showError('Enter valid amount');
+  const data = await post('/finance/expense/add', {
+    amount, category: document.getElementById('e-cat').value,
+    payment_method: document.getElementById('e-pay').value,
+    description: document.getElementById('e-desc').value,
+    notes: document.getElementById('e-notes').value,
+    date: document.getElementById('e-date').value,
+    is_recurring: document.getElementById('e-recurring').checked
+  });
+  if (data.success) { showSuccess('Expense added!'); clearFields(['e-amount','e-desc','e-notes']); }
+  else showError(data.message);
+}
+
+async function submitIncome() {
+  const amount = document.getElementById('i-amount').value;
+  const source = document.getElementById('i-source').value;
+  if (!amount || !source) return showError('Amount and source required');
+  const data = await post('/finance/income/add', {
+    amount, source, description: document.getElementById('i-desc').value,
+    date: document.getElementById('i-date').value,
+    is_recurring: document.getElementById('i-recurring').checked
+  });
+  if (data.success) { showSuccess('Income added!'); clearFields(['i-amount','i-source','i-desc']); }
+  else showError(data.message);
+}
+
+async function submitSubscription() {
+  const name = document.getElementById('s-name').value;
+  const amount = document.getElementById('s-amount').value;
+  const renewal_date = document.getElementById('s-date').value;
+  if (!name || !amount || !renewal_date) return showError('Name, amount and date required');
+  const data = await post('/subscriptions/add', {
+    name, amount, renewal_date,
+    billing_cycle: document.getElementById('s-cycle').value,
+    category: document.getElementById('s-cat').value,
+    notes: document.getElementById('s-notes').value
+  });
+  if (data.success) { showSuccess('Subscription added!'); clearFields(['s-name','s-amount','s-notes']); }
+  else showError(data.message);
+}
+
+async function submitEMI() {
+  const name = document.getElementById('em-name').value;
+  const emi_amount = document.getElementById('em-amount').value;
+  const total_installments = document.getElementById('em-total-inst').value;
+  if (!name || !emi_amount || !total_installments) return showError('Name, EMI amount and installments required');
+  const data = await post('/emi/add', {
+    name, emi_amount, total_installments,
+    total_amount: document.getElementById('em-total').value || emi_amount * total_installments,
+    paid_installments: document.getElementById('em-paid').value || 0,
+    due_date: document.getElementById('em-due').value || 1,
+    start_date: document.getElementById('em-start').value,
+    notes: document.getElementById('em-notes').value
+  });
+  if (data.success) { showSuccess('EMI added!'); clearFields(['em-name','em-total','em-amount','em-total-inst','em-paid','em-due','em-notes']); }
+  else showError(data.message);
+}
+
+async function submitInvestment() {
+  const name = document.getElementById('inv-name').value;
+  const principal = document.getElementById('inv-principal').value;
+  if (!name || !principal) return showError('Name and principal required');
+  const data = await post('/investments/add', {
+    type: document.getElementById('inv-type').value,
+    name, principal,
+    bank_name: document.getElementById('inv-bank').value,
+    interest_rate: document.getElementById('inv-rate').value || 0,
+    start_date: document.getElementById('inv-start').value,
+    maturity_date: document.getElementById('inv-maturity').value,
+    notes: document.getElementById('inv-notes').value
+  });
+  if (data.success) { showSuccess('Investment added!'); clearFields(['inv-name','inv-bank','inv-principal','inv-rate','inv-maturity','inv-notes']); }
+  else showError(data.message);
+}
+
+async function submitVehicle() {
+  const name = document.getElementById('v-name').value;
+  if (!name) return showError('Vehicle name required');
+  const data = await post('/vehicle/add', {
+    name,
+    registration_number: document.getElementById('v-reg').value,
+    insurance_expiry: document.getElementById('v-insurance').value,
+    puc_expiry: document.getElementById('v-puc').value,
+    last_service_date: document.getElementById('v-service').value,
+    current_km: document.getElementById('v-km').value,
+    next_service_km: document.getElementById('v-next-km').value
+  });
+  if (data.success) { showSuccess('Vehicle added!'); clearFields(['v-name','v-reg','v-km','v-next-km']); }
+  else showError(data.message);
+}
+
+async function submitFuel() {
+  const amount = document.getElementById('f-amount').value;
+  if (!amount) return showError('Amount required');
+  const data = await post('/vehicle/fuel/add', {
+    amount,
+    litres: document.getElementById('f-litres').value,
+    km_reading: document.getElementById('f-km').value,
+    date: document.getElementById('f-date').value
+  });
+  if (data.success) { showSuccess('Fuel logged!'); clearFields(['f-amount','f-litres','f-km']); }
+  else showError(data.message);
+}
+
+async function submitHealth() {
+  const title = document.getElementById('h-title').value;
+  if (!title) return showError('Title required');
+  const data = await post('/health/add', {
+    record_type: document.getElementById('h-type').value,
+    title,
+    amount: document.getElementById('h-amount').value || 0,
+    doctor_name: document.getElementById('h-doctor').value,
+    date: document.getElementById('h-date').value,
+    notes: document.getElementById('h-notes').value
+  });
+  if (data.success) { showSuccess('Health record added!'); clearFields(['h-title','h-amount','h-doctor','h-notes']); }
+  else showError(data.message);
+}
+
+async function submitHomeTask() {
+  const title = document.getElementById('ht-title').value;
+  if (!title) return showError('Task name required');
+  const data = await post('/home-maintenance/task/add', {
+    title,
+    frequency_days: document.getElementById('ht-freq').value,
+    next_due: document.getElementById('ht-due').value,
+    contact_name: document.getElementById('ht-contact').value,
+    contact_phone: document.getElementById('ht-phone').value
+  });
+  if (data.success) { showSuccess('Task added!'); clearFields(['ht-title','ht-freq','ht-contact','ht-phone']); }
+  else showError(data.message);
+}
+
+async function submitHomeLog() {
+  const title = document.getElementById('hl-title').value;
+  if (!title) return showError('Description required');
+  const data = await post('/home-maintenance/log/add', {
+    title,
+    amount: document.getElementById('hl-amount').value || 0,
+    date: document.getElementById('hl-date').value,
+    notes: document.getElementById('hl-notes').value
+  });
+  if (data.success) { showSuccess('Home expense logged!'); clearFields(['hl-title','hl-amount','hl-notes']); }
+  else showError(data.message);
+}
+
+async function submitGas() {
+  const data = await post('/gas/add', {
+    amount: document.getElementById('g-amount').value || 0,
+    date: document.getElementById('g-date').value,
+    notes: document.getElementById('g-notes').value
+  });
+  if (data.success) { showSuccess('Gas cylinder logged!'); clearFields(['g-amount','g-notes']); }
+  else showError(data.message);
+}
+
+async function submitTrip() {
+  const name = document.getElementById('tr-name').value;
+  if (!name) return showError('Trip name required');
+  const data = await post('/trips/add', {
+    name,
+    destination: document.getElementById('tr-dest').value,
+    budget: document.getElementById('tr-budget').value || 0,
+    start_date: document.getElementById('tr-start').value,
+    end_date: document.getElementById('tr-end').value,
+    notes: document.getElementById('tr-notes').value
+  });
+  if (data.success) { showSuccess('Trip created!'); clearFields(['tr-name','tr-dest','tr-budget','tr-end','tr-notes']); }
+  else showError(data.message);
+}
+
+async function submitGoal() {
+  const name = document.getElementById('go-name').value;
+  const target = document.getElementById('go-target').value;
+  if (!name || !target) return showError('Name and target amount required');
+  const data = await post('/goals/add', {
+    name, target_amount: target,
+    current_amount: document.getElementById('go-current').value || 0,
+    target_date: document.getElementById('go-date').value
+  });
+  if (data.success) { showSuccess('Goal added!'); clearFields(['go-name','go-target','go-current']); }
+  else showError(data.message);
+}
+
+async function submitPassword() {
+  const app = document.getElementById('pw-app').value;
+  const pwd = document.getElementById('pw-pass').value;
+  if (!app || !pwd) return showError('App name and password required');
+  const data = await post('/vault/passwords/add', {
+    app_name: app,
+    category: document.getElementById('pw-cat').value,
+    username: document.getElementById('pw-user').value,
+    email: document.getElementById('pw-email').value,
+    password: pwd,
+    website_url: document.getElementById('pw-url').value,
+    notes: document.getElementById('pw-notes').value
+  });
+  if (data.success) { showSuccess('Password saved!'); clearFields(['pw-app','pw-user','pw-email','pw-pass','pw-url','pw-notes']); }
+  else showError(data.message);
+}
+</script>
+{% endblock %}

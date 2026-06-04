@@ -124,3 +124,17 @@ def toggle_simple_mode():
     current_user.simple_mode = not current_user.simple_mode
     db.session.commit()
     return jsonify({'success': True, 'simple_mode': current_user.simple_mode})
+
+
+@main.route('/quick-entry')
+@login_required
+def quick_entry():
+    from routes.life import FuelLog, HomeTask, GasLog
+    today = date.today()
+    vehicles = __import__('models', fromlist=['Vehicle']).Vehicle.query.filter_by(user_id=current_user.id).all()
+    return render_template('quick_entry.html',
+        today=today,
+        categories=EXPENSE_CATEGORIES,
+        payment_methods=PAYMENT_METHODS,
+        vehicles=vehicles
+    )

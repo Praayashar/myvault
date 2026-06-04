@@ -38,6 +38,7 @@
     </div>
     <div class="sidebar-nav">
       <div class="sidebar-section">Main</div>
+      <a href="{{ url_for('main.quick_entry') }}" class="sidebar-link {% if request.endpoint == 'main.quick_entry' %}active{% endif %}"><span>⚡</span> Quick Entry</a>
       <a href="{{ url_for('main.dashboard') }}" class="sidebar-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}"><span>🏠</span> Dashboard</a>
       <a href="{{ url_for('finance.index') }}" class="sidebar-link {% if request.blueprint == 'finance' %}active{% endif %}"><span>💰</span> Finance</a>
       <a href="{{ url_for('investments.index') }}" class="sidebar-link {% if request.blueprint == 'investments' %}active{% endif %}"><span>📈</span> Investments</a>
@@ -95,7 +96,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       <span>Finance</span>
     </a>
-    <a href="#" class="nav-item nav-add" id="quickAddBtn">
+    <a href="/quick-entry" class="nav-item nav-add" id="quickAddBtn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </a>
     <a href="{{ url_for('vault.passwords') }}" class="nav-item {% if request.blueprint == 'vault' %}active{% endif %}">
@@ -116,6 +117,7 @@
         <button class="modal-close" id="closeMM">&times;</button>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-bottom:20px;">
+        <a href="{{ url_for('main.quick_entry') }}" class="more-menu-item" style="background:var(--green-dark);color:white;">⚡<span>Quick Entry</span></a>
         <a href="{{ url_for('ai.index') }}" class="more-menu-item">🤖<span>AI Assistant</span></a>
         <a href="{{ url_for('reports.index') }}" class="more-menu-item">📊<span>Reports</span></a>
         <a href="{{ url_for('investments.index') }}" class="more-menu-item">📈<span>Investments</span></a>
