@@ -43,9 +43,10 @@ def create_app():
     from routes.ai import ai
     from routes.reports import reports
     from routes.cron import cron
+    from routes.business import business
 
     for bp in (auth, main, finance, bills, investments, life,
-               vault, family, ai, reports, cron):
+               vault, family, ai, reports, cron, business):
         app.register_blueprint(bp)
 
     # The cron endpoints are machine-to-machine (Google Apps Script) and carry
@@ -55,6 +56,7 @@ def create_app():
     # Import extra models so they are created by db.create_all()
     from routes.life import FuelLog, HomeTask, HomeLog, GasLog, Trip, TripExpense
     from routes.vault import TicketVault
+    from models import BusinessExpense, ReminderLog, LoginAttempt  # noqa: F401
 
     with app.app_context():
         try:

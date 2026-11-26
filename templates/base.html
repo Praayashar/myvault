@@ -10,6 +10,10 @@
   <meta name="theme-color" content="#1B4332">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MyVault">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
 </head>
 <body class="{% if current_user.is_authenticated and current_user.simple_mode %}simple-mode{% endif %}"
   data-emailjs-key="{{ config.EMAILJS_PUBLIC_KEY }}"
@@ -51,6 +55,11 @@
       <a href="{{ url_for('bills.subscriptions') }}" class="sidebar-link {% if request.endpoint == 'bills.subscriptions' %}active{% endif %}"><span>🔄</span> Subscriptions</a>
       <a href="{{ url_for('bills.emi_list') }}" class="sidebar-link {% if request.endpoint == 'bills.emi_list' %}active{% endif %}"><span>📦</span> EMI Tracker</a>
       <a href="{{ url_for('bills.insurance_list') }}" class="sidebar-link {% if request.endpoint == 'bills.insurance_list' %}active{% endif %}"><span>🛡️</span> Insurance</a>
+
+      {% if current_user.role == 'admin' %}
+      <div class="sidebar-section">Business</div>
+      <a href="{{ url_for('business.index') }}" class="sidebar-link {% if request.endpoint == 'business.index' %}active{% endif %}"><span>🏢</span> Raw to Ready</a>
+      {% endif %}
 
       <div class="sidebar-section">Life</div>
       <a href="{{ url_for('life.vehicle') }}" class="sidebar-link {% if request.endpoint == 'life.vehicle' %}active{% endif %}"><span>🚗</span> Vehicle</a>
@@ -126,6 +135,9 @@
         <a href="{{ url_for('bills.subscriptions') }}" class="more-menu-item">🔄<span>Subscriptions</span></a>
         <a href="{{ url_for('bills.emi_list') }}" class="more-menu-item">📦<span>EMI Tracker</span></a>
         <a href="{{ url_for('bills.insurance_list') }}" class="more-menu-item">🛡️<span>Insurance</span></a>
+        {% if current_user.role == 'admin' %}
+        <a href="{{ url_for('business.index') }}" class="more-menu-item">🏢<span>Business</span></a>
+        {% endif %}
         <a href="{{ url_for('vault.accounts') }}" class="more-menu-item">🏦<span>Accounts</span></a>
         <a href="{{ url_for('vault.documents') }}" class="more-menu-item">📄<span>Documents</span></a>
         <a href="{{ url_for('vault.tickets') }}" class="more-menu-item">🎫<span>Tickets</span></a>
@@ -195,5 +207,62 @@
 
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 {% block scripts %}{% endblock %}
+
+<!-- ===== Install on phone (Android Chrome) =====
+     Chrome fires beforeinstallprompt when the app qualifies as installable.
+     We stash the event and show our own button, because the browser's own
+     banner is easy to miss and this needs to be obvious for a first-time user. -->
+<div id="installBar" class="install-bar hidden">
+  <div>
+    <strong>Install MyVault</strong>
+    <span>Add it to your home screen like an app</span>
+  </div>
+  <button id="installBtn">Install</button>
+  <button id="installDismiss" aria-label="Not now">&times;</button>
+</div>
+
+<script>
+(function () {
+  // Service worker - required for the install prompt to appear at all.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .catch(function (e) { console.log('SW registration failed:', e); });
+    });
+  }
+
+  var deferred = null;
+  var bar = document.getElementById('installBar');
+  if (!bar) return;
+
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferred = e;
+    try {
+      if (localStorage.getItem('mv_install_dismissed') === '1') return;
+    } catch (err) { /* storage blocked - show it anyway */ }
+    bar.classList.remove('hidden');
+  });
+
+  document.getElementById('installBtn').addEventListener('click', function () {
+    if (!deferred) return;
+    deferred.prompt();
+    deferred.userChoice.then(function () {
+      deferred = null;
+      bar.classList.add('hidden');
+    });
+  });
+
+  document.getElementById('installDismiss').addEventListener('click', function () {
+    bar.classList.add('hidden');
+    try { localStorage.setItem('mv_install_dismissed', '1'); } catch (err) {}
+  });
+
+  // Already installed and launched from the home screen - never show the bar.
+  if (window.matchMedia('(display-mode: standalone)').matches) {
+    bar.classList.add('hidden');
+  }
+})();
+</script>
 </body>
 </html>

@@ -1,0 +1,275 @@
+{% extends 'base.html' %}
+{% block title %}Business — MyVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="greeting"><h2>🏢 Raw to Ready</h2>
+    <p style="font-size:13px;color:var(--text-muted);margin-top:2px;">
+      Business expenses — separate from personal, not shown on the Family page
+    </p>
+  </div>
+
+  <!-- The numbers that matter at QRMP filing time -->
+  <div class="section-card">
+    <div class="section-header">
+      <span>{{ quarter_label }}</span>
+      <span style="font-size:12px;color:var(--text-muted);">{{ q_count }} entries</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:4px 0 2px;">
+      <div>
+        <div style="font-size:12px;color:var(--text-muted);">Taxable value</div>
+        <div style="font-size:18px;font-weight:700;">₹{{ "{:,.0f}".format(q_taxable) }}</div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--text-muted);">GST paid</div>
+        <div style="font-size:18px;font-weight:700;">₹{{ "{:,.0f}".format(q_gst) }}</div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--text-muted);">Total spent</div>
+        <div style="font-size:18px;font-weight:700;">₹{{ "{:,.0f}".format(q_total) }}</div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--text-muted);">Input credit claimable</div>
+        <div style="font-size:18px;font-weight:700;color:var(--green-dark);">₹{{ "{:,.0f}".format(q_claimable) }}</div>
+      </div>
+    </div>
+  </div>
+
+  {% if missing_gstin %}
+  <div class="section-card" style="border-left:4px solid var(--amber,#B45309);">
+    <div class="section-header" style="color:var(--amber,#B45309);">
+      ⚠️ {{ missing_gstin|length }} entr{{ 'y' if missing_gstin|length == 1 else 'ies' }} missing a vendor GSTIN
+    </div>
+    <div style="font-size:13px;color:var(--text-muted);padding:2px 0 6px;">
+      These carry GST but have no GSTIN recorded. Without it you cannot claim the
+      input credit. Fix them before filing this quarter.
+    </div>
+    {% for r in missing_gstin %}
+    <div class="list-item">
+      <div style="flex:1;">
+        <div class="item-title">{{ r.vendor_name }}</div>
+        <div class="item-sub">{{ r.date.strftime('%d %b') }} · GST ₹{{ "{:,.0f}".format(r.gst_amount) }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="section-card">
+    <div class="section-header">
+      <span>This month</span>
+      <span style="font-weight:700;">₹{{ "{:,.0f}".format(month_total) }}</span>
+    </div>
+    <div class="section-header" style="border:none;">
+      <span>{{ fy_label }}</span>
+      <span style="font-weight:700;">₹{{ "{:,.0f}".format(fy_total) }}</span>
+    </div>
+  </div>
+
+  <button class="btn-primary btn-full" id="showAddBiz">+ Add Business Expense</button>
+
+  <div class="form-card hidden" id="addBizForm" style="margin-top:12px;">
+    <div class="form-group">
+      <label>Vendor / Supplier</label>
+      <input type="text" id="biz-vendor" placeholder="e.g. Render, Google Workspace, Jinkal Soni">
+    </div>
+    <div class="form-group">
+      <label>Category</label>
+      <select id="biz-category">
+        {% for c in categories %}<option>{{ c }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Taxable Value (₹, before GST)</label>
+      <input type="number" id="biz-taxable" placeholder="0.00" step="0.01" min="0">
+    </div>
+    <div class="form-group">
+      <label>GST Rate</label>
+      <select id="biz-rate">
+        {% for r in gst_rates %}<option value="{{ r }}" {% if r == 18 %}selected{% endif %}>{{ r }}%</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group" id="biz-supply-wrap">
+      <label>Supply Type</label>
+      <select id="biz-supply">
+        <option value="intra">Intra-state (Gujarat) — CGST + SGST</option>
+        <option value="inter">Inter-state — IGST</option>
+      </select>
+    </div>
+
+    <!-- Live total so you can check it against the invoice before saving -->
+    <div class="section-card" style="margin:0 0 14px;background:var(--green-pale,#EAF3EC);">
+      <div style="display:flex;justify-content:space-between;font-size:14px;">
+        <span>GST</span><span id="biz-calc-gst">₹0</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:700;margin-top:4px;">
+        <span>Invoice total</span><span id="biz-calc-total">₹0</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Vendor GSTIN <span style="color:var(--text-muted);font-weight:400;">(needed to claim credit)</span></label>
+      <input type="text" id="biz-gstin" placeholder="24ABCDE1234F1Z5" maxlength="15"
+             style="text-transform:uppercase;">
+    </div>
+    <div class="form-group">
+      <label>Invoice Number</label>
+      <input type="text" id="biz-invoice" placeholder="Optional">
+    </div>
+    <div class="form-group">
+      <label>Date</label>
+      <input type="date" id="biz-date" value="{{ today }}">
+    </div>
+    <div class="form-group">
+      <label>Payment Mode</label>
+      <select id="biz-payment">
+        {% for p in payment_modes %}<option>{{ p }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+      <input type="checkbox" id="biz-claim" checked style="width:auto;min-height:auto;">
+      <label for="biz-claim" style="margin:0;">Claim this GST as input credit</label>
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <input type="text" id="biz-notes" placeholder="Optional">
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button class="btn-outline" id="cancelBiz">Cancel</button>
+      <button class="btn-primary" id="submitBiz">Add</button>
+    </div>
+  </div>
+
+  {% if cat_totals %}
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">Where it went — {{ fy_label }}</div>
+    {% set ftotal = fy_total %}
+    {% for cat, amt in cat_totals %}
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:3px;">
+        <span>{{ cat }}</span>
+        <span style="font-weight:600;">₹{{ "{:,.0f}".format(amt) }}</span>
+      </div>
+      <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+        <div style="height:100%;background:var(--green-dark);width:{{ "{:.0f}".format((amt/ftotal*100) if ftotal else 0) }}%;"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">Export for your CA</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+      <a href="{{ url_for('business.export_csv', period='quarter') }}"
+         class="btn-outline" style="text-align:center;text-decoration:none;">This quarter</a>
+      <a href="{{ url_for('business.export_csv', period='fy') }}"
+         class="btn-outline" style="text-align:center;text-decoration:none;">Full year</a>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:8px;">
+      Includes the CGST/SGST/IGST split and the input credit total for GSTR-3B.
+    </div>
+  </div>
+
+  <div class="section-card" style="margin-top:12px;">
+    <div class="section-header">All Entries</div>
+    {% if expenses %}
+      {% for e in expenses %}
+      <div class="list-item" id="biz-{{ e.id }}">
+        <div style="flex:1;min-width:0;">
+          <div class="item-title">{{ e.vendor_name }}</div>
+          <div class="item-sub">
+            {{ e.date.strftime('%d %b %Y') }} · {{ e.category }}
+            {% if e.gst_rate %} · {{ "{:.0f}".format(e.gst_rate) }}% GST{% endif %}
+            {% if not e.vendor_gstin and e.gst_amount > 0 %}
+              · <span style="color:var(--amber,#B45309);">no GSTIN</span>
+            {% endif %}
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-weight:700;">₹{{ "{:,.0f}".format(e.total_amount) }}</div>
+          {% if e.gst_amount > 0 %}
+          <div style="font-size:12px;color:var(--text-muted);">
+            incl. ₹{{ "{:,.0f}".format(e.gst_amount) }} GST
+          </div>
+          {% endif %}
+        </div>
+        <button class="del-btn" onclick="deleteBiz({{ e.id }})" title="Delete">✕</button>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div style="text-align:center;padding:22px;color:var(--text-muted);">
+        No business expenses yet.<br>
+        <span style="font-size:13px;">Add your hosting, subscriptions and freelancer payments here.</span>
+      </div>
+    {% endif %}
+  </div>
+
+  <div style="height:80px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const bizForm = document.getElementById('addBizForm');
+document.getElementById('showAddBiz').addEventListener('click', () => {
+  bizForm.classList.toggle('hidden');
+  if (!bizForm.classList.contains('hidden')) document.getElementById('biz-vendor').focus();
+});
+document.getElementById('cancelBiz').addEventListener('click', () => bizForm.classList.add('hidden'));
+
+// Live GST maths, so the total can be checked against the invoice before saving
+function recalc() {
+  const taxable = parseFloat(document.getElementById('biz-taxable').value) || 0;
+  const rate = parseFloat(document.getElementById('biz-rate').value) || 0;
+  const gst = Math.round(taxable * rate) / 100;
+  document.getElementById('biz-calc-gst').textContent =
+    '₹' + gst.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  document.getElementById('biz-calc-total').textContent =
+    '₹' + (taxable + gst).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  // Supply type is meaningless at 0%
+  document.getElementById('biz-supply-wrap').style.display = rate > 0 ? '' : 'none';
+}
+['biz-taxable', 'biz-rate'].forEach(id =>
+  document.getElementById(id).addEventListener('input', recalc));
+document.getElementById('biz-rate').addEventListener('change', recalc);
+recalc();
+
+document.getElementById('submitBiz').addEventListener('click', async (ev) => {
+  const vendor = document.getElementById('biz-vendor').value.trim();
+  const taxable = document.getElementById('biz-taxable').value;
+  if (!vendor) { window.myvaultShowError('Please enter the vendor name.'); return; }
+  if (!taxable || parseFloat(taxable) <= 0) {
+    window.myvaultShowError('Please enter the taxable value.'); return;
+  }
+  ev.target.disabled = true;
+  const res = await fetch('/business/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      vendor_name: vendor,
+      category: document.getElementById('biz-category').value,
+      taxable_value: taxable,
+      gst_rate: document.getElementById('biz-rate').value,
+      supply_type: document.getElementById('biz-supply').value,
+      vendor_gstin: document.getElementById('biz-gstin').value.trim().toUpperCase(),
+      invoice_number: document.getElementById('biz-invoice').value.trim(),
+      date: document.getElementById('biz-date').value,
+      payment_mode: document.getElementById('biz-payment').value,
+      claim_input_credit: document.getElementById('biz-claim').checked,
+      notes: document.getElementById('biz-notes').value.trim()
+    })
+  });
+  const data = await res.json();
+  ev.target.disabled = false;
+  if (data.success) location.reload();
+});
+
+async function deleteBiz(id) {
+  if (!confirm('Delete this business expense?')) return;
+  const res = await fetch('/business/delete/' + id, { method: 'POST' });
+  if ((await res.json()).success) document.getElementById('biz-' + id).remove();
+}
+</script>
+{% endblock %}

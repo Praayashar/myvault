@@ -1,4 +1,6 @@
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for
+from flask import (Blueprint, render_template, request, jsonify, redirect,
+                   url_for, send_from_directory, current_app)
+import os
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
 from models import db, Expense, Income, Subscription, EMI, Investment, SavingsGoal, FamilyNotice, ImportantDate, User
@@ -118,6 +120,20 @@ def quick_add():
 def settings():
     all_users = User.query.all() if current_user.role == 'admin' else []
     return render_template('settings.html', all_users=all_users)
+
+@main.route('/sw.js')
+def service_worker():
+    """Served from the root, not /static/, so the worker's scope is the whole
+    site. A worker at /static/sw.js can only control /static/ and the app
+    would not be installable."""
+    response = send_from_directory(
+        os.path.join(current_app.root_path, 'static'), 'sw.js'
+    )
+    response.headers['Content-Type'] = 'application/javascript'
+    response.headers['Service-Worker-Allowed'] = '/'
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
+
 
 @main.route('/settings/reset-member-password', methods=['POST'])
 @login_required

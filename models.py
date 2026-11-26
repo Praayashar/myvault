@@ -241,3 +241,60 @@ class LoginAttempt(db.Model):
     identifier = db.Column(db.String(200), nullable=False, index=True)  # email or IP
     attempted_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     successful = db.Column(db.Boolean, default=False)
+
+
+# ===========================================================================
+# BusinessExpense - Raw to Ready's books, kept deliberately separate from
+# personal expenses.
+#
+# A separate table rather than a flag on Expense, for three reasons:
+#   1. New tables are created by db.create_all() with no migration risk.
+#   2. Business entries carry GST fields that make no sense on a grocery bill.
+#   3. The Family page aggregates Expense only, so business spending stays
+#      out of the view other family members can see.
+# ===========================================================================
+class BusinessExpense(db.Model):
+    __tablename__ = 'business_expenses'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    date = db.Column(db.Date, nullable=False, default=lambda: datetime.utcnow().date())
+    vendor_name = db.Column(db.String(200), nullable=False)
+    vendor_gstin = db.Column(db.String(20))          # 15 chars when present
+    invoice_number = db.Column(db.String(60))
+    category = db.Column(db.String(60), nullable=False)
+
+    # GST breakdown. taxable_value is the pre-tax amount; total is what left
+    # the bank. Intra-state splits into CGST+SGST, inter-state goes to IGST.
+    taxable_value = db.Column(db.Float, nullable=False, default=0)
+    gst_rate = db.Column(db.Float, default=0)        # 0, 5, 12, 18, 28
+    supply_type = db.Column(db.String(12), default='intra')   # intra | inter | none
+    cgst = db.Column(db.Float, default=0)
+    sgst = db.Column(db.Float, default=0)
+    igst = db.Column(db.Float, default=0)
+    total_amount = db.Column(db.Float, nullable=False, default=0)
+
+    payment_mode = db.Column(db.String(30))
+    # Whether this GST can be claimed back as input credit. Not everything can -
+    # personal-use items and blocked credits under Section 17(5) cannot.
+    claim_input_credit = db.Column(db.Boolean, default=True)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def gst_amount(self):
+        return (self.cgst or 0) + (self.sgst or 0) + (self.igst or 0)
+
+    @property
+    def financial_quarter(self):
+        """Indian FY quarter label, matching QRMP filing periods."""
+        if not self.date:
+            return ''
+        m = self.date.month
+        if m in (4, 5, 6):
+            return f"Q1 Apr-Jun {self.date.year}"
+        if m in (7, 8, 9):
+            return f"Q2 Jul-Sep {self.date.year}"
+        if m in (10, 11, 12):
+            return f"Q3 Oct-Dec {self.date.year}"
+        return f"Q4 Jan-Mar {self.date.year}"

@@ -20,7 +20,7 @@ from sqlalchemy import func
 from models import (
     db, User, Expense, Income, Subscription, Insurance, EMI, Investment,
     SavingsGoal, BudgetLimit, Vehicle, DocumentVault, HealthRecord,
-    AccountDirectory, ImportantDate, FamilyNotice,
+    AccountDirectory, ImportantDate, FamilyNotice, BusinessExpense,
 )
 import reminders as reminder_engine
 
@@ -175,6 +175,7 @@ def backup():
         'accounts': rows(AccountDirectory, ['id', 'user_id', 'account_type', 'account_name', 'account_number', 'ifsc_code', 'branch', 'notes']),
         'passwords_encrypted': rows(PasswordVault, ['id', 'user_id', 'app_name', 'category', 'username', 'email', 'password', 'website_url', 'notes']),
         'tickets': rows(TicketVault, ['id', 'user_id', 'title', 'ticket_type', 'booking_ref', 'from_location', 'to_location', 'travel_date', 'amount', 'notes']),
+        'business_expenses': rows(BusinessExpense, ['id', 'user_id', 'date', 'vendor_name', 'vendor_gstin', 'invoice_number', 'category', 'taxable_value', 'gst_rate', 'supply_type', 'cgst', 'sgst', 'igst', 'total_amount', 'payment_mode', 'claim_input_credit', 'notes']),
         'important_dates': rows(ImportantDate, ['id', 'user_id', 'title', 'date', 'type', 'reminder_days', 'notes']),
         'family_notices': rows(FamilyNotice, ['id', 'user_id', 'message', 'is_pinned', 'created_at']),
         'fuel_logs': rows(FuelLog, ['id', 'user_id', 'vehicle_id', 'amount', 'litres', 'km_reading', 'date', 'notes']),
