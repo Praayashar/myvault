@@ -28,8 +28,17 @@ class Config:
 
     # ---- Database ---------------------------------------------------------
     DATABASE_URL = os.environ.get('DATABASE_URL', '')
+    # Normalise the scheme, then name the driver explicitly.
+    #
+    # Supabase/Heroku hand out 'postgres://'. SQLAlchemy needs 'postgresql://'.
+    # And from SQLAlchemy 2.1 a bare 'postgresql://' defaults to psycopg (v3),
+    # not psycopg2 - so an unpinned upgrade makes the app die at startup with
+    # "No module named 'psycopg'". Spelling out +psycopg2 keeps it working on
+    # every SQLAlchemy version.
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+    if DATABASE_URL.startswith('postgresql://'):
+        DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg2://', 1)
 
     SQLALCHEMY_DATABASE_URI = DATABASE_URL if DATABASE_URL else 'sqlite:///myvault.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
