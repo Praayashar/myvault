@@ -171,7 +171,7 @@
 
     {% if goals %}
       {% for g in goals %}
-      {% set pct = [((g.current_amount / g.target_amount) * 100), 100] | min | round %}
+      {% set pct = [((g.current_amount / g.target_amount) * 100), 100] | min | round if g.target_amount else 0 %}
       <div class="inv-card" id="goal-{{ g.id }}">
         <div class="inv-header">
           <div class="item-title">{{ g.name }}</div>

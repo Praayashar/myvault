@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for
 from flask_login import login_required, current_user
+from werkzeug.security import generate_password_hash
 from models import db, Expense, Income, Subscription, EMI, Investment, SavingsGoal, FamilyNotice, ImportantDate, User
 from datetime import datetime, date, timedelta
 from sqlalchemy import func
@@ -117,6 +118,40 @@ def quick_add():
 def settings():
     all_users = User.query.all() if current_user.role == 'admin' else []
     return render_template('settings.html', all_users=all_users)
+
+@main.route('/settings/reset-member-password', methods=['POST'])
+@login_required
+def reset_member_password():
+    """Admin sets a new password for a family member.
+
+    This replaces the old self-service forgot-password flow, which printed a
+    working reset link on screen to anyone who typed an email address.
+    """
+    if current_user.role != 'admin':
+        return jsonify({'success': False, 'message': 'Only the admin can do this.'}), 403
+
+    data = request.get_json(silent=True) or {}
+    try:
+        user_id = int(data.get('user_id'))
+        new_password = (data.get('new_password') or '').strip()
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': 'Invalid request.'}), 400
+
+    if len(new_password) < 8:
+        return jsonify({'success': False,
+                        'message': 'Password must be at least 8 characters.'}), 400
+
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({'success': False, 'message': 'That profile no longer exists.'}), 404
+
+    user.password_hash = generate_password_hash(new_password, method='pbkdf2:sha256')
+    user.reset_token = None
+    user.reset_token_expiry = None
+    db.session.commit()
+    return jsonify({'success': True,
+                    'message': f'Password updated for {user.name}.'})
+
 
 @main.route('/settings/simple-mode', methods=['POST'])
 @login_required

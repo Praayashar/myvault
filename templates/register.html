@@ -1,6 +1,12 @@
 {% extends 'base.html' %}
 {% block title %}{% if first_setup %}Setup MyVault{% else %}New Profile{% endif %} — MyVault{% endblock %}
 
+{# Reachable two ways: logged out during first setup, and logged in when the
+   admin adds a family member from Settings. base.html renders `content` for
+   logged-in users and `unauth_content` for logged-out ones, so this template
+   must supply both or the form silently disappears for the admin. #}
+{% block content %}{{ self.unauth_content() }}{% endblock %}
+
 {% block unauth_content %}
 <div class="auth-page">
   <div class="auth-card">
@@ -19,6 +25,7 @@
     {% endwith %}
 
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
         <label>Full Name</label>
         <input type="text" name="name" placeholder="e.g. Rahul Shah" required autofocus>

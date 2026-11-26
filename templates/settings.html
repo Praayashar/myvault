@@ -63,11 +63,23 @@
   <div class="section-card">
     <div class="section-header">👨‍👩‍👦 Family Profiles</div>
     {% for u in all_users %}
-    <div class="list-item">
-      <div class="profile-avatar small">{{ u.name[0].upper() }}</div>
-      <div style="flex:1; margin-left: 10px;">
-        <div class="item-title">{{ u.name }}</div>
-        <div class="item-sub">{{ u.email }} · {{ u.role.title() }}</div>
+    <div class="list-item" style="display:block;">
+      <div style="display:flex;align-items:center;">
+        <div class="profile-avatar small">{{ u.name[0].upper() }}</div>
+        <div style="flex:1; margin-left: 10px;">
+          <div class="item-title">{{ u.name }}</div>
+          <div class="item-sub">{{ u.email }} · {{ u.role.title() }}</div>
+        </div>
+        <button class="pw-btn" style="flex:0 0 auto;min-width:0;padding:8px 12px;"
+                onclick="togglePwReset({{ u.id }})">Set password</button>
+      </div>
+      <div class="hidden" id="pwreset-{{ u.id }}" style="margin-top:10px;">
+        <input type="text" id="newpw-{{ u.id }}" class="pw-search" style="padding-left:14px;"
+               placeholder="New password (at least 8 characters)" autocomplete="off">
+        <div class="pw-actions">
+          <button class="pw-btn" onclick="togglePwReset({{ u.id }})">Cancel</button>
+          <button class="pw-btn primary" onclick="saveMemberPassword({{ u.id }}, this)">Save password</button>
+        </div>
       </div>
     </div>
     {% endfor %}
@@ -111,6 +123,36 @@
 
 {% block scripts %}
 <script>
+function togglePwReset(id) {
+  const box = document.getElementById('pwreset-' + id);
+  box.classList.toggle('hidden');
+  if (!box.classList.contains('hidden')) document.getElementById('newpw-' + id).focus();
+}
+
+async function saveMemberPassword(id, btn) {
+  const input = document.getElementById('newpw-' + id);
+  const pwd = input.value.trim();
+  if (pwd.length < 8) {
+    if (window.myvaultShowError) window.myvaultShowError('Password must be at least 8 characters.');
+    return;
+  }
+  btn.disabled = true;
+  const res = await fetch('/settings/reset-member-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: id, new_password: pwd })
+  });
+  const data = await res.json();
+  btn.disabled = false;
+  if (data.success) {
+    input.value = '';
+    togglePwReset(id);
+    btn.innerHTML = 'Saved';
+    alert(data.message);
+    setTimeout(() => { btn.innerHTML = 'Save password'; }, 1500);
+  }
+}
+
 document.getElementById('simpleModeToggle').addEventListener('change', function() {
   fetch('/settings/simple-mode', { method: 'POST', headers: {'Content-Type': 'application/json'} })
     .then(r => r.json()).then(d => { if(d.success) location.reload(); });

@@ -197,17 +197,28 @@ def income_list():
 @finance.route('/finance/budget/add', methods=['POST'])
 @login_required
 def add_budget():
-    data = request.get_json()
-    existing = BudgetLimit.query.filter_by(
-        user_id=current_user.id, category=data['category']
-    ).first()
-    if existing:
-        existing.monthly_limit = float(data['limit'])
-    else:
-        b = BudgetLimit(user_id=current_user.id, category=data['category'], monthly_limit=float(data['limit']))
-        db.session.add(b)
-    db.session.commit()
-    return jsonify({'success': True})
+    data = request.get_json(silent=True) or {}
+    try:
+        limit = float(data['limit'])
+        if limit <= 0:
+            return jsonify({'success': False,
+                            'message': 'Budget limit must be more than 0.'}), 400
+        existing = BudgetLimit.query.filter_by(
+            user_id=current_user.id, category=data['category']
+        ).first()
+        if existing:
+            existing.monthly_limit = limit
+        else:
+            db.session.add(BudgetLimit(
+                user_id=current_user.id,
+                category=data['category'],
+                monthly_limit=limit,
+            ))
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
 
 @finance.route('/finance/budget/delete/<int:id>', methods=['POST'])
 @login_required

@@ -5,3 +5,6 @@ __pycache__/
 .env
 instance/
 *.zip
+.venv/
+.DS_Store
+github-tokens

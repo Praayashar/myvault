@@ -1,9 +1,12 @@
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
+import logging
+import requests
 from models import db, Expense, Income, Subscription, Investment, EMI, SavingsGoal, BudgetLimit
 from datetime import datetime, date, timedelta
 from sqlalchemy import func
 
+logger = logging.getLogger(__name__)
 ai = Blueprint('ai', __name__)
 
 def get_user_financial_context(user_id):
@@ -83,7 +86,7 @@ SPENDING BY CATEGORY THIS MONTH:
 {chr(10).join(f"- {cat}: ₹{amt:,.0f}" for cat, amt in category_data) if category_data else "- No expenses logged yet"}
 
 SAVINGS GOALS:
-{chr(10).join(f"- {g.name}: ₹{g.current_amount:,.0f} saved of ₹{g.target_amount:,.0f} ({g.current_amount/g.target_amount*100:.0f}%)" for g in goals) if goals else "- No savings goals set"}
+{chr(10).join(f"- {g.name}: ₹{g.current_amount:,.0f} saved of ₹{g.target_amount:,.0f}" + (f" ({g.current_amount/g.target_amount*100:.0f}%)" if g.target_amount else "") for g in goals) if goals else "- No savings goals set"}
 
 BUDGET ALERTS:
 {chr(10).join(f"- {a}" for a in budget_alerts) if budget_alerts else "- All budgets within limits"}
@@ -111,23 +114,83 @@ def index():
 @ai.route('/ai/chat', methods=['POST'])
 @login_required
 def chat():
-    data = request.get_json()
-    user_message = data.get('message', '').strip()
-    conversation_history = data.get('history', [])
+    """Server-side Gemini call.
+
+    The previous version returned the system prompt - containing the user's
+    full financial snapshot - to the browser and had the browser call the AI
+    provider directly, with no API key. That could never work, and it leaked
+    the snapshot. Everything now stays on the server.
+    """
+    data = request.get_json(silent=True) or {}
+    user_message = (data.get('message') or '').strip()
+    history = data.get('history', [])
 
     if not user_message:
-        return jsonify({'success': False, 'message': 'Empty message'}), 400
+        return jsonify({'success': False, 'message': 'Please type a question.'}), 400
 
-    context = get_user_financial_context(current_user.id)
+    api_key = current_app.config.get('GEMINI_API_KEY', '')
+    if not api_key:
+        return jsonify({
+            'success': False,
+            'message': 'The AI assistant is not set up yet. Add GEMINI_API_KEY in Render > Environment.'
+        }), 503
 
-    # Build messages for Claude API
-    messages = []
-    for msg in conversation_history[-10:]:  # last 10 messages for context
-        messages.append({'role': msg['role'], 'content': msg['content']})
-    messages.append({'role': 'user', 'content': user_message})
+    model = current_app.config.get('GEMINI_MODEL', 'gemini-2.5-flash')
+    system_prompt = get_user_financial_context(current_user.id)
 
-    return jsonify({
-        'success': True,
-        'system_prompt': context,
-        'messages': messages
-    })
+    # Gemini format: roles are 'user' and 'model' (not 'assistant').
+    contents = []
+    for msg in history[-10:]:
+        role = 'model' if msg.get('role') in ('assistant', 'model') else 'user'
+        text = (msg.get('content') or '').strip()
+        if text:
+            contents.append({'role': role, 'parts': [{'text': text}]})
+    contents.append({'role': 'user', 'parts': [{'text': user_message}]})
+
+    url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+           f"{model}:generateContent")
+
+    try:
+        resp = requests.post(
+            url,
+            headers={
+                'Content-Type': 'application/json',
+                'x-goog-api-key': api_key,
+            },
+            json={
+                'systemInstruction': {'parts': [{'text': system_prompt}]},
+                'contents': contents,
+                'generationConfig': {
+                    'maxOutputTokens': 1000,
+                    'temperature': 0.7,
+                },
+            },
+            timeout=45,
+        )
+    except requests.Timeout:
+        return jsonify({'success': False,
+                        'message': 'The assistant took too long to reply. Please try again.'}), 504
+    except requests.RequestException as e:
+        logger.error("Gemini request failed: %s", e)
+        return jsonify({'success': False,
+                        'message': 'Could not reach the assistant. Check your internet and try again.'}), 502
+
+    if resp.status_code != 200:
+        logger.error("Gemini returned %s: %s", resp.status_code, resp.text[:500])
+        msg = 'The assistant could not answer right now.'
+        if resp.status_code in (401, 403):
+            msg = 'The AI key was rejected. Check GEMINI_API_KEY in Render.'
+        elif resp.status_code == 429:
+            msg = 'Too many questions just now. Please wait a minute and try again.'
+        return jsonify({'success': False, 'message': msg}), 502
+
+    try:
+        payload = resp.json()
+        reply = payload['candidates'][0]['content']['parts'][0]['text']
+    except (KeyError, IndexError, ValueError):
+        # Most often a safety block or an empty candidate.
+        logger.error("Unexpected Gemini response: %s", resp.text[:500])
+        return jsonify({'success': False,
+                        'message': 'The assistant did not return an answer. Please rephrase and try again.'}), 502
+
+    return jsonify({'success': True, 'reply': reply})

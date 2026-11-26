@@ -54,9 +54,9 @@
     <div class="category-row">
       <div class="cat-info">
         <span class="cat-name">{{ cat }}</span>
-        <span class="text-muted">{{ "{:.0f}".format(amt/total*100) }}%</span>
+        <span class="text-muted">{{ "{:.0f}".format((amt/total*100) if total else 0) }}%</span>
       </div>
-      <div class="progress-bar slim"><div class="progress-fill" style="width:{{ (amt/total*100)|round }}%"></div></div>
+      <div class="progress-bar slim"><div class="progress-fill" style="width:{{ ((amt/total*100) if total else 0)|round }}%"></div></div>
       <div class="cat-amount">₹{{ "{:,.0f}".format(amt) }}</div>
     </div>
     {% endfor %}
@@ -72,7 +72,7 @@
     <div class="list-item">
       <div class="item-title">{{ method }}</div>
       <div style="display:flex;align-items:center;gap:8px;">
-        <span class="text-muted" style="font-size:12px;">{{ "{:.0f}".format(amt/ptotal*100) }}%</span>
+        <span class="text-muted" style="font-size:12px;">{{ "{:.0f}".format((amt/ptotal*100) if ptotal else 0) }}%</span>
         <span class="item-amount">₹{{ "{:,.0f}".format(amt) }}</span>
       </div>
     </div>

@@ -92,10 +92,10 @@
     <div class="category-row">
       <div class="cat-info">
         <span class="cat-name">{{ cat }}</span>
-        <span class="text-muted">{{ "{:.0f}".format(amt / total_cat * 100) }}%</span>
+        <span class="text-muted">{{ "{:.0f}".format((amt / total_cat * 100) if total_cat else 0) }}%</span>
       </div>
       <div class="progress-bar slim">
-        <div class="progress-fill" style="width: {{ (amt / total_cat * 100)|round }}%"></div>
+        <div class="progress-fill" style="width: {{ ((amt / total_cat * 100) if total_cat else 0)|round }}%"></div>
       </div>
       <div class="cat-amount">₹{{ "{:,.0f}".format(amt) }}</div>
     </div>

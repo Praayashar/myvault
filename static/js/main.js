@@ -1,3 +1,81 @@
+// ===========================================================================
+// Global fetch wrapper
+//
+// Two problems this solves across every form in the app:
+//   1. CSRF - attaches the token to every same-origin POST automatically.
+//   2. Silent failures - every form used to do
+//          if ((await res.json()).success) location.reload();
+//      with no else branch, so a failed save did nothing at all: no message,
+//      no hint, nothing. Now any failure shows a visible message.
+//
+// Doing it here means all 30 fetch calls are covered without touching each
+// template, and new ones are covered automatically.
+// ===========================================================================
+(function () {
+  const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const nativeFetch = window.fetch.bind(window);
+
+  function showError(message) {
+    document.querySelectorAll('.mv-error-toast').forEach(el => el.remove());
+    const box = document.createElement('div');
+    box.className = 'mv-error-toast';
+    box.innerHTML =
+      '<strong>Could not save</strong><span>' +
+      String(message || 'Something went wrong. Please try again.')
+        .replace(/</g, '&lt;') +
+      '</span><button aria-label="Close">&times;</button>';
+    document.body.appendChild(box);
+    box.querySelector('button').addEventListener('click', () => box.remove());
+    setTimeout(() => box.remove(), 9000);
+  }
+  window.myvaultShowError = showError;
+
+  window.fetch = async function (input, init) {
+    init = init || {};
+    const url = (typeof input === 'string') ? input : (input && input.url) || '';
+    const sameOrigin = url.startsWith('/') || url.startsWith(window.location.origin);
+    const method = (init.method || 'GET').toUpperCase();
+
+    if (sameOrigin && method !== 'GET' && method !== 'HEAD' && CSRF_TOKEN) {
+      const headers = new Headers(init.headers || {});
+      if (!headers.has('X-CSRFToken')) headers.set('X-CSRFToken', CSRF_TOKEN);
+      init = Object.assign({}, init, { headers });
+    }
+
+    let res;
+    try {
+      res = await nativeFetch(input, init);
+    } catch (networkError) {
+      if (sameOrigin && method !== 'GET') {
+        showError('No internet connection. Please check and try again.');
+      }
+      throw networkError;
+    }
+
+    // Inspect a copy so the caller still gets an unread body.
+    if (sameOrigin && method !== 'GET') {
+      try {
+        const peek = await res.clone().json();
+        if (peek && peek.success === false) {
+          showError(peek.message || 'Please check what you entered and try again.');
+        }
+      } catch (e) {
+        if (!res.ok) {
+          showError('The server had a problem (error ' + res.status +
+                    '). Please refresh the page and try again.');
+          // Stop `await res.json()` in the caller from throwing on an HTML
+          // error page, which used to freeze the form with no feedback.
+          return new Response(
+            JSON.stringify({ success: false, message: 'Server error ' + res.status }),
+            { status: res.status, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+    }
+    return res;
+  };
+})();
+
 // More Menu
 const moreMenuBtn = document.getElementById('moreMenuBtn');
 const moreMenu = document.getElementById('moreMenu');
@@ -108,49 +186,9 @@ setTimeout(() => {
   });
 }, 3000);
 
-// Auto-check and send renewal reminders via EmailJS on dashboard load
-async function checkAndSendReminders() {
-  const EMAILJS_PUBLIC_KEY = document.body.dataset.emailjsKey;
-  const EMAILJS_SERVICE_ID = document.body.dataset.emailjsService;
-  const EMAILJS_REMINDER_TEMPLATE = document.body.dataset.emailjsReminder;
-
-  if (!EMAILJS_PUBLIC_KEY || !EMAILJS_SERVICE_ID || !EMAILJS_REMINDER_TEMPLATE) return;
-
-  try {
-    const res = await fetch('/reminders/pending');
-    const data = await res.json();
-    if (!data.reminders || !data.reminders.length) return;
-
-    // Load EmailJS if not loaded
-    if (typeof emailjs === 'undefined') {
-      await new Promise((resolve) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
-        s.onload = resolve;
-        document.head.appendChild(s);
-      });
-    }
-
-    emailjs.init(EMAILJS_PUBLIC_KEY);
-
-    for (const reminder of data.reminders) {
-      try {
-        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_REMINDER_TEMPLATE, reminder);
-        await fetch('/reminders/mark-sent/' + reminder.id, { method: 'POST' });
-        console.log('Reminder sent for:', reminder.sub_name);
-      } catch (e) {
-        console.error('Failed to send reminder:', e);
-      }
-    }
-  } catch (e) {
-    // Silent fail — don't disrupt the user
-  }
-}
-
-// Run on dashboard page only
-if (window.location.pathname === '/dashboard') {
-  checkAndSendReminders();
-}
+// Renewal reminders are now sent server-side, triggered daily by Google
+// Apps Script (see apps_script.gs). The old browser-based sender only ran
+// when somebody happened to open the dashboard on exactly the right day.
 
 // ===== SWIPE TO DELETE =====
 function initSwipeToDelete(selector, deleteCallback) {

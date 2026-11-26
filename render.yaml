@@ -2,26 +2,20 @@ services:
   - type: web
     name: myvault
     runtime: python
-    buildCommand: pip install -r requirements.txt && flask db upgrade || flask db init && flask db migrate && flask db upgrade
-    startCommand: gunicorn app:app
+    # Schema is created by db.create_all() at startup, so no flask-migrate
+    # chain is needed here. The old command failed noisily on every build.
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 1 --timeout 120
     envVars:
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        fromDatabase:
-          name: myvault-db
-          property: connectionString
-      - key: EMAILJS_SERVICE_ID
+        sync: false          # Supabase connection string
+      - key: VAULT_KEY
+        sync: false          # Fernet key - KEEP YOUR OWN COPY
+      - key: CRON_SECRET
+        sync: false          # shared with Google Apps Script
+      - key: GEMINI_API_KEY
         sync: false
-      - key: EMAILJS_TEMPLATE_ID
-        sync: false
-      - key: EMAILJS_REMINDER_TEMPLATE_ID
-        sync: false
-      - key: EMAILJS_PUBLIC_KEY
-        sync: false
-
-databases:
-  - name: myvault-db
-    plan: free
-    databaseName: myvault
-    user: myvault
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash

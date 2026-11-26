@@ -1,20 +1,87 @@
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
 from models import db, PasswordVault, AccountDirectory, DocumentVault
 from datetime import datetime, date
 import base64
+import logging
 
+from cryptography.fernet import Fernet, InvalidToken
+
+logger = logging.getLogger(__name__)
 vault = Blueprint('vault', __name__)
 
-# Simple reversible encoding (not encryption - personal use only)
-def encode_password(pwd):
-    return base64.b64encode(pwd.encode()).decode()
 
-def decode_password(encoded):
+# ===========================================================================
+# Password storage
+#
+# Previously: base64, which is not encryption - anyone who could read the
+# database row could read the password. Now: Fernet (AES-128-CBC + HMAC) with
+# the key held only in the VAULT_KEY environment variable. The database on its
+# own is useless without it.
+#
+# Nothing changes for the user: no master password to remember, no extra step.
+#
+# IMPORTANT: keep your own copy of VAULT_KEY. If it is lost or regenerated,
+# every stored password becomes permanently unreadable.
+# ===========================================================================
+
+def _fernet():
+    key = current_app.config.get('VAULT_KEY', '')
+    if not key:
+        return None
     try:
-        return base64.b64decode(encoded.encode()).decode()
-    except:
-        return encoded
+        return Fernet(key.encode() if isinstance(key, str) else key)
+    except Exception:
+        logger.error("VAULT_KEY is set but is not a valid Fernet key")
+        return None
+
+
+def encode_password(pwd):
+    """Encrypt before storing."""
+    f = _fernet()
+    if f is None:
+        # No key configured - refuse rather than silently storing weakly.
+        raise RuntimeError(
+            "VAULT_KEY is not configured. Add it in Render > Environment "
+            "before saving passwords."
+        )
+    return f.encrypt(pwd.encode()).decode()
+
+
+def decode_password(stored):
+    """Decrypt for display.
+
+    Handles the old base64 rows transparently, so existing entries keep
+    working with no manual migration step. Run migrate_vault.py once to
+    convert them all properly.
+    """
+    if stored is None:
+        return ''
+    f = _fernet()
+    if f is not None:
+        try:
+            return f.decrypt(stored.encode()).decode()
+        except InvalidToken:
+            pass  # not encrypted yet - fall through to the legacy path
+        except Exception:
+            pass
+    # Legacy base64 row
+    try:
+        return base64.b64decode(stored.encode()).decode()
+    except Exception:
+        return stored
+
+
+def is_legacy(stored):
+    """True if this row is still old-style base64."""
+    f = _fernet()
+    if f is None or stored is None:
+        return False
+    try:
+        f.decrypt(stored.encode())
+        return False
+    except Exception:
+        return True
 
 # ===== PASSWORD VAULT =====
 @vault.route('/vault/passwords')

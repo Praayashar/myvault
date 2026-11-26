@@ -34,7 +34,7 @@
     {% if emis %}
       {% for emi in emis %}
       {% set remaining = emi.total_installments - emi.paid_installments %}
-      {% set pct = (emi.paid_installments / emi.total_installments * 100) | round %}
+      {% set pct = (emi.paid_installments / emi.total_installments * 100) | round if emi.total_installments else 0 %}
       <div class="emi-card" id="emi-{{ emi.id }}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
           <div class="item-title">{{ emi.name }}</div>

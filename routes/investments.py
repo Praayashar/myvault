@@ -88,10 +88,17 @@ def delete_investment(id):
 def add_goal():
     data = request.get_json()
     try:
+        # A target of 0 used to save happily and then crash the whole
+        # Investments page with a divide-by-zero on every load - and the
+        # delete button lived on that dead page, so it was unrecoverable.
+        target = float(data['target_amount'])
+        if target <= 0:
+            return jsonify({'success': False,
+                            'message': 'Target amount must be more than 0.'}), 400
         goal = SavingsGoal(
             user_id=current_user.id,
             name=data['name'],
-            target_amount=float(data['target_amount']),
+            target_amount=target,
             current_amount=float(data.get('current_amount', 0)),
             target_date=datetime.strptime(data['target_date'], '%Y-%m-%d').date() if data.get('target_date') else None
         )

@@ -208,3 +208,36 @@ class Insurance(db.Model):
     nominee = db.Column(db.String(100))
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+# ===========================================================================
+# ReminderLog - records that a reminder has already been sent, for ANY record
+# type. Previously only Subscription had a `reminder_sent` flag, so insurance,
+# EMI, vehicle papers, documents and maturities could never be tracked.
+# This is a NEW table, so db.create_all() adds it with no migration needed.
+# ===========================================================================
+class ReminderLog(db.Model):
+    __tablename__ = 'reminder_log'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    record_type = db.Column(db.String(40), nullable=False)   # 'subscription', 'insurance', ...
+    record_id = db.Column(db.Integer, nullable=False)
+    due_date = db.Column(db.Date, nullable=False)            # the date being reminded about
+    sent_on = db.Column(db.Date, nullable=False, default=lambda: datetime.utcnow().date())
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.Index('ix_reminder_unique', 'record_type', 'record_id', 'due_date'),
+    )
+
+
+# ===========================================================================
+# LoginAttempt - rate limiting for the login page. A new table rather than new
+# columns on `users`, so no ALTER TABLE is needed on the live database.
+# ===========================================================================
+class LoginAttempt(db.Model):
+    __tablename__ = 'login_attempts'
+    id = db.Column(db.Integer, primary_key=True)
+    identifier = db.Column(db.String(200), nullable=False, index=True)  # email or IP
+    attempted_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    successful = db.Column(db.Boolean, default=False)

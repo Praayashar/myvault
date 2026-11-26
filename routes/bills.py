@@ -82,12 +82,17 @@ def emi_list():
 def add_emi():
     data = request.get_json()
     try:
+        # 0 instalments used to divide by zero and kill the EMI page for good.
+        installments = int(data['total_installments'])
+        if installments <= 0:
+            return jsonify({'success': False,
+                            'message': 'Number of instalments must be more than 0.'}), 400
         emi = EMI(
             user_id=current_user.id,
             name=data['name'],
             total_amount=float(data['total_amount']),
             emi_amount=float(data['emi_amount']),
-            total_installments=int(data['total_installments']),
+            total_installments=installments,
             paid_installments=int(data.get('paid_installments', 0)),
             due_date=int(data.get('due_date', 1)),
             start_date=datetime.strptime(data['start_date'], '%Y-%m-%d').date() if data.get('start_date') else date.today(),

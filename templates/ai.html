@@ -82,39 +82,26 @@ async function sendMessage() {
   const typingEl = appendTyping();
 
   try {
-    // Get system prompt and messages from backend
-    const prepRes = await fetch('/ai/chat', {
+    // The server talks to Gemini and returns just the reply. The financial
+    // snapshot never leaves the server now, and no API key is in this page.
+    const res = await fetch('/ai/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: msg, history: conversationHistory.slice(0, -1) })
     });
-    const prepData = await prepRes.json();
 
-    // Call Claude API directly from browser
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: prepData.system_prompt,
-        messages: prepData.messages
-      })
-    });
-
-    const claudeData = await claudeRes.json();
+    const data = await res.json();
     typingEl.remove();
 
-    if (claudeData.content && claudeData.content[0]) {
-      const reply = claudeData.content[0].text;
-      appendMessage('bot', reply);
-      conversationHistory.push({ role: 'assistant', content: reply });
+    if (data.success && data.reply) {
+      appendMessage('bot', data.reply);
+      conversationHistory.push({ role: 'assistant', content: data.reply });
     } else {
-      appendMessage('bot', 'Sorry, I could not get a response. Please try again.');
+      appendMessage('bot', data.message || 'Sorry, I could not answer that. Please try again.');
     }
   } catch (err) {
     typingEl.remove();
-    appendMessage('bot', '⚠️ Connection error. Please check your internet and try again.');
+    appendMessage('bot', 'Could not reach the assistant. Please check your internet and try again.');
   }
 
   isLoading = false;
